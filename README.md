@@ -92,6 +92,14 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-12 | `GET` · `PUT /arcos/{id}` | Consultar, editar origen, destino, etiqueta y condición | todos · ADMINISTRADOR, EDITOR |
 | HU-13 | `GET /arcos/{id}/impacto` · `DELETE /arcos/{id}` | Advertencias previas · eliminar | todos · ADMINISTRADOR |
 | — | `GET /procesos/{id}/validacion` | Advertencias de coherencia del diagrama | todos |
+| HU-25 | `POST /procesos/{id}/mensajes/throw` | Message Throw hacia otro pool del diagrama | ADMINISTRADOR, EDITOR |
+| HU-26 | `POST /procesos/{id}/mensajes/externos` | Notificación (evento o tarea) a un sistema externo de caja negra | ADMINISTRADOR, EDITOR |
+| HU-27 | `POST /procesos/{id}/mensajes/catch` | Message Catch de inicio o intermedio | ADMINISTRADOR, EDITOR |
+| HU-28 | `PUT /mensajes/{id}/correlacion` | Clave de correlación y acción sin caso | ADMINISTRADOR, EDITOR |
+| HU-25 a 28 | `GET /procesos/{id}/mensajes` · `GET` · `PUT /mensajes/{id}` | Mensajes del proceso · consultar y editar | todos · ADMINISTRADOR, EDITOR |
+| HU-25 a 28 | `GET /mensajes/{id}/impacto` · `DELETE /mensajes/{id}` | Advertencias previas · eliminar | todos · ADMINISTRADOR |
+| HU-23 | `PUT` · `GET /procesos/{id}/compartir` | Compartir por NIT en solo lectura · estado | ADMINISTRADOR de la empresa dueña |
+| HU-23 | `GET /procesos/compartidos` | Procesos que otras empresas compartieron conmigo | todos |
 
 ## Coherencia del diagrama
 
@@ -108,10 +116,21 @@ El sistema modela y valida; no ejecuta procesos. `ValidadorDeProcesoService` rev
 | `GATEWAY_SIN_RAMIFICACION` | ERROR | Un gateway de divergencia necesita al menos dos salidas |
 | `CONDICION_FALTANTE` | ERROR | Cada salida de un gateway exclusivo o inclusivo lleva condición |
 | `CONDICIONES_NO_EXCLUYENTES` | AVISO | Un gateway exclusivo repite una condición |
+| `CAJA_NEGRA_CON_ELEMENTOS` | ERROR | Un pool de caja negra no tiene elementos internos |
+| `MENSAJE_SIN_DESTINO` · `MENSAJE_MISMO_POOL` | ERROR | El flujo de mensaje apunta a un pool que no existe o no cruza de pool |
+| `MENSAJE_SIN_RECEPTOR` | AVISO | El Message Throw no tiene un Message Catch con su nombre en el pool destino |
+| `CATCH_SIN_EMISOR` | ERROR | El Message Catch no tiene Message Throw homónimo ni está marcado como de origen externo |
+| `CORRELACION_INCOHERENTE` | ERROR | El Throw y el Catch que se corresponden usan claves distintas |
+| `CORRELACION_FALTANTE` | AVISO | Un Message Catch intermedio no tiene clave de correlación |
+| `CORRELACION_AMBIGUA` | AVISO | Dos mensajes distintos comparten nombre y clave |
 
 En **BORRADOR** el diagrama puede estar incompleto: las advertencias se muestran pero no bloquean. Para pasar a **PUBLICADO** no puede haber errores (409 con la lista en `detalles`), y un proceso publicado rechaza cualquier cambio que lo deje incoherente. Antes de eliminar un elemento, `GET …/{id}/impacto` devuelve los arcos que se irían con él y los problemas nuevos que dejaría.
 
 Reglas de los arcos: no unen un elemento consigo mismo, no se repiten entre el mismo par de nodos, nunca cruzan de un pool a otro (eso es un mensaje), no entran a un evento de inicio ni salen de uno de fin, y la condición solo existe al salir de un gateway exclusivo o inclusivo.
+
+## Colaboración entre empresas
+
+Por defecto un proceso solo lo ve la empresa que lo creó. Su administrador puede compartirlo por NIT con otras empresas (`PUT /procesos/{id}/compartir`): la invitada ve la ficha, el diagrama, los mensajes y las advertencias, pero no puede modificar nada (toda escritura responde 404), ni ve el historial, los usuarios o el catálogo de roles de la empresa dueña. Dejar de compartir o eliminar el proceso retira el acceso.
 
 ## Documentación de la API
 
