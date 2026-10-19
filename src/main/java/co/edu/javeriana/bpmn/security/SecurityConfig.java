@@ -26,8 +26,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
-
 /**
  * API stateless con JWT en el header Authorization. CSRF se desactiva porque el token no viaja
  * en una cookie: el navegador no lo agrega solo a una petición de otro sitio.
@@ -39,16 +37,16 @@ import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
 public class SecurityConfig {
 
     private final JwtService jwtService;
-    private final UsuarioRepository usuarioRepository;
+    private final CustomUserDetailService userDetailService;
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final ApiAccessDeniedHandler apiAccessDeniedHandler;
     private final List<String> origenesPermitidos;
 
-    public SecurityConfig(JwtService jwtService, UsuarioRepository usuarioRepository,
+    public SecurityConfig(JwtService jwtService, CustomUserDetailService userDetailService,
                           JwtAuthEntryPoint jwtAuthEntryPoint, ApiAccessDeniedHandler apiAccessDeniedHandler,
                           @Value("${app.cors.allowed-origins}") String origenesPermitidos) {
         this.jwtService = jwtService;
-        this.usuarioRepository = usuarioRepository;
+        this.userDetailService = userDetailService;
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
         this.apiAccessDeniedHandler = apiAccessDeniedHandler;
         this.origenesPermitidos = Arrays.stream(origenesPermitidos.split(","))
@@ -83,7 +81,7 @@ public class SecurityConfig {
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint(jwtAuthEntryPoint)
                 .accessDeniedHandler(apiAccessDeniedHandler))
-            .addFilterBefore(new JwtAuthenticationFilter(jwtService, usuarioRepository),
+            .addFilterBefore(new JwtAuthenticationFilter(jwtService, userDetailService),
                     UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
