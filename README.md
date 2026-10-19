@@ -69,6 +69,18 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-04 | `POST /procesos` | Crear proceso (BORRADOR, con el pool de la empresa) | ADMINISTRADOR, EDITOR |
 | HU-05 | `PUT /procesos/{id}` | Editar nombre, descripción, categoría y estado | ADMINISTRADOR, EDITOR |
 | HU-06 | `DELETE /procesos/{id}` | Eliminación lógica | ADMINISTRADOR |
+| HU-07 | `GET /procesos/{id}/diagrama` | Diagrama completo del proceso | todos |
+| HU-20 | `GET /roles-proceso?nombre=` | Roles de proceso con su uso (paginado) | todos |
+| HU-20 | `GET /roles-proceso/{id}/procesos` · `/historial` | Procesos que usan el rol · historial | todos |
+| HU-17 | `POST /roles-proceso` | Crear rol de proceso | ADMINISTRADOR |
+| HU-18 | `PUT /roles-proceso/{id}` | Editar (renombra las lanes que lo usan) | ADMINISTRADOR |
+| HU-19 | `DELETE /roles-proceso/{id}` | Eliminación lógica si no está en uso | ADMINISTRADOR |
+| HU-21 | `GET` · `POST /procesos/{id}/pools` | Pools del proceso · agregar participante | todos · según HU-24 |
+| HU-21 | `GET` · `PUT` · `DELETE /pools/{id}` | Consultar, editar, eliminar pool | todos · según HU-24 |
+| HU-24 | `PUT /pools/{id}/permisos` | Quién modifica pools y lanes | ADMINISTRADOR |
+| HU-24 | `GET /pools/{id}/roles-disponibles` | Roles asignables a las lanes | todos |
+| HU-22 | `GET` · `POST /pools/{id}/lanes` · `PUT /pools/{id}/lanes/orden` | Lanes del pool, crear, reordenar | según HU-24 |
+| HU-22 | `PUT` · `DELETE /lanes/{id}` | Renombrar (otro rol), eliminar | según HU-24 |
 
 ## Documentación de la API
 
