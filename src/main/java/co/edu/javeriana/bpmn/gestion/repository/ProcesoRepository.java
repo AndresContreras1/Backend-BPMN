@@ -22,6 +22,28 @@ public interface ProcesoRepository extends JpaRepository<Proceso, Long> {
     /** Puerta de lectura propia: incluye los inactivos, que se consultan con filtro (HU-06). */
     Optional<Proceso> findByIdAndEmpresaId(Long id, Long empresaId);
 
+    /**
+     * HU-23: puerta de lectura. El proceso es propio (activo o no) o está activo y compartido con la empresa.
+     */
+    @Query("""
+           select p from Proceso p
+           where p.id = :id
+             and (p.empresaId = :empresaId
+                  or (p.activo = true and exists (select 1 from ProcesoCompartido c
+                                                  where c.proceso = p and c.empresaInvitadaId = :empresaId
+                                                    and c.activo = true)))
+           """)
+    Optional<Proceso> findLegibleByIdAndEmpresaId(@Param("id") Long id, @Param("empresaId") Long empresaId);
+
+    /** HU-23: procesos activos que otras empresas compartieron con esta. */
+    @Query("""
+           select p from Proceso p
+           where p.activo = true
+             and exists (select 1 from ProcesoCompartido c
+                         where c.proceso = p and c.empresaInvitadaId = :empresaId and c.activo = true)
+           """)
+    Page<Proceso> buscarCompartidosCon(@Param("empresaId") Long empresaId, Pageable pageable);
+
     boolean existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrue(String nombre, Long empresaId);
 
     boolean existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrueAndIdNot(String nombre, Long empresaId, Long id);
