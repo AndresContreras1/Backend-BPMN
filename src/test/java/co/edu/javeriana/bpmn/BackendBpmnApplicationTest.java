@@ -39,9 +39,9 @@ class BackendBpmnApplicationTest {
     }
 
     @Test
-    void RutaInexistente_Responde404ProblemDetail() throws Exception {
+    void RutaInexistenteSinToken_Responde401AntesDeRevelarSiExiste() throws Exception {
         mockMvc.perform(get("/api/v1/no-existe"))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.title").value("Recurso no encontrado"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("No autenticado"));
     }
 }
