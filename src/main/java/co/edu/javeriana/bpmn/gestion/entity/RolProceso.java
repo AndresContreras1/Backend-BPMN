@@ -46,7 +46,7 @@ public class RolProceso extends EntidadDeEmpresa {
     @Column(length = 80, nullable = false)
     private String nombre;
 
-    @Column(length = 300)
+    @Column(length = 300, nullable = true)
     private String descripcion;
 
     @Column(nullable = false)

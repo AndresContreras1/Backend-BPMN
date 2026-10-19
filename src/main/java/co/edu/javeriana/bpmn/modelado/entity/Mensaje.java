@@ -79,15 +79,15 @@ public class Mensaje extends EntidadDeEmpresa {
     private Pool poolDestino;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_destino", length = 20)
+    @Column(name = "tipo_destino", length = 20, nullable = true)
     private TipoDestinoExterno tipoDestino;
 
     /** HU-26: en qué momento del proceso ocurre el envío. */
-    @Column(length = 300)
+    @Column(length = 300, nullable = true)
     private String momento;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "politica_fallo", length = 30)
+    @Column(name = "politica_fallo", length = 30, nullable = true)
     private PoliticaFallo politicaFallo;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -99,11 +99,11 @@ public class Mensaje extends EntidadDeEmpresa {
     @Column(name = "origen_externo", nullable = false)
     private boolean origenExterno;
 
-    @Column(name = "clave_correlacion", length = 120)
+    @Column(name = "clave_correlacion", length = 120, nullable = true)
     private String claveCorrelacion;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "accion_sin_caso", length = 30)
+    @Column(name = "accion_sin_caso", length = 30, nullable = true)
     private AccionSinCaso accionSinCaso;
 
     @Column(nullable = false)

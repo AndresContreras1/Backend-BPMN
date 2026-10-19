@@ -54,7 +54,7 @@ public class HistorialCambio extends EntidadDeEmpresa {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Proceso proceso;
 
-    @Column(name = "usuario_id")
+    @Column(name = "usuario_id", nullable = true)
     private Long usuarioId;
 
     @Column(name = "usuario_correo", length = 120, nullable = false)
@@ -71,13 +71,13 @@ public class HistorialCambio extends EntidadDeEmpresa {
     @Column(length = 20, nullable = false)
     private ElementoHistorial elemento;
 
-    @Column(name = "elemento_id")
+    @Column(name = "elemento_id", nullable = true)
     private Long elementoId;
 
     @Column(length = 1000, nullable = false)
     private String detalle;
 
     /** Advertencias de coherencia del diagrama en el momento del cambio, separadas por salto de línea. */
-    @Column(length = 2000)
+    @Column(length = 2000, nullable = true)
     private String advertencias;
 }
