@@ -9,6 +9,9 @@ jobs:
   build:
     name: Compilar, probar y analizar
     runs-on: ubuntu-latest
+    # A nivel de job: los secretos no se pueden leer en un "if" y el env del mismo paso tampoco
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
       - name: Checkout
@@ -37,8 +40,6 @@ jobs:
       - name: Analisis SonarCloud
         # Se omite hasta que exista el secreto SONAR_TOKEN en el repositorio
         if: env.SONAR_TOKEN != ''
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: ./mvnw -B sonar:sonar -Dsonar.token=$SONAR_TOKEN
 
   docker:
