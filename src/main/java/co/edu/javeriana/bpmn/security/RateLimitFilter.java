@@ -70,7 +70,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(segundos));
         escritor.escribir(response, HttpStatus.TOO_MANY_REQUESTS,
                 "Demasiadas peticiones",
-                "Ha superado el número de intentos permitidos. Inténtelo de nuevo en " + segundos + " segundos.",
+                "Ha superado el número de intentos permitidos. Inténtelo de nuevo en " + segundos
+                        + (segundos == 1 ? " segundo." : " segundos."),
                 request.getRequestURI());
     }
 
