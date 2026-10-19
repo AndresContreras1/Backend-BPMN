@@ -81,6 +81,37 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-24 | `GET /pools/{id}/roles-disponibles` | Roles asignables a las lanes | todos |
 | HU-22 | `GET` · `POST /pools/{id}/lanes` · `PUT /pools/{id}/lanes/orden` | Lanes del pool, crear, reordenar | según HU-24 |
 | HU-22 | `PUT` · `DELETE /lanes/{id}` | Renombrar (otro rol), eliminar | según HU-24 |
+| HU-08 | `POST /lanes/{id}/actividades` | Crear actividad (nombre único, tipo, posición) | ADMINISTRADOR, EDITOR |
+| HU-09 | `GET` · `PUT /actividades/{id}` | Consultar, editar (nombre, tipo, lane responsable) | todos · ADMINISTRADOR, EDITOR |
+| HU-10 | `GET /actividades/{id}/impacto` · `DELETE /actividades/{id}` | Advertencias previas · eliminar con sus arcos | todos · ADMINISTRADOR |
+| HU-14 | `POST /lanes/{id}/gateways` | Crear gateway exclusivo, paralelo o inclusivo | ADMINISTRADOR, EDITOR |
+| HU-15 | `GET` · `PUT /gateways/{id}` | Consultar con advertencias, editar tipo y condiciones | todos · ADMINISTRADOR, EDITOR |
+| HU-16 | `GET /gateways/{id}/impacto` · `DELETE /gateways/{id}` | Advertencias previas · eliminar con sus arcos | todos · ADMINISTRADOR |
+| — | `POST /pools/{id}/eventos` · `GET` · `PUT` · `DELETE /eventos/{id}` | Eventos de inicio y de fin | ADMINISTRADOR, EDITOR (eliminar: ADMINISTRADOR) |
+| HU-11 | `GET /procesos/{id}/arcos` · `POST /arcos` | Arcos del proceso · crear arco | todos · ADMINISTRADOR, EDITOR |
+| HU-12 | `GET` · `PUT /arcos/{id}` | Consultar, editar origen, destino, etiqueta y condición | todos · ADMINISTRADOR, EDITOR |
+| HU-13 | `GET /arcos/{id}/impacto` · `DELETE /arcos/{id}` | Advertencias previas · eliminar | todos · ADMINISTRADOR |
+| — | `GET /procesos/{id}/validacion` | Advertencias de coherencia del diagrama | todos |
+
+## Coherencia del diagrama
+
+El sistema modela y valida; no ejecuta procesos. `ValidadorDeProcesoService` revisa cada pool que no es caja negra:
+
+| Código | Severidad | Regla |
+|---|---|---|
+| `DIAGRAMA_VACIO` | ERROR | El diagrama no tiene elementos |
+| `SIN_INICIO` · `SIN_FIN` | ERROR | El pool no tiene evento de inicio o de fin |
+| `SIN_ENTRADA` · `SIN_SALIDA` | ERROR | Un elemento no tiene camino de entrada o de salida |
+| `INALCANZABLE` | ERROR | Un elemento no se alcanza desde ningún evento de inicio |
+| `INICIO_CON_ENTRADAS` · `FIN_CON_SALIDAS` | ERROR | Arcos que entran a un inicio o salen de un fin |
+| `ACTIVIDAD_SIN_LANE` | ERROR | Toda actividad pertenece a una lane |
+| `GATEWAY_SIN_RAMIFICACION` | ERROR | Un gateway de divergencia necesita al menos dos salidas |
+| `CONDICION_FALTANTE` | ERROR | Cada salida de un gateway exclusivo o inclusivo lleva condición |
+| `CONDICIONES_NO_EXCLUYENTES` | AVISO | Un gateway exclusivo repite una condición |
+
+En **BORRADOR** el diagrama puede estar incompleto: las advertencias se muestran pero no bloquean. Para pasar a **PUBLICADO** no puede haber errores (409 con la lista en `detalles`), y un proceso publicado rechaza cualquier cambio que lo deje incoherente. Antes de eliminar un elemento, `GET …/{id}/impacto` devuelve los arcos que se irían con él y los problemas nuevos que dejaría.
+
+Reglas de los arcos: no unen un elemento consigo mismo, no se repiten entre el mismo par de nodos, nunca cruzan de un pool a otro (eso es un mensaje), no entran a un evento de inicio ni salen de uno de fin, y la condición solo existe al salir de un gateway exclusivo o inclusivo.
 
 ## Documentación de la API
 
