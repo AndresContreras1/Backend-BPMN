@@ -64,9 +64,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<ProcesoResponse> listar(Long empresaId, FiltroProceso filtro, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
         return PageResponse.de(procesoRepository.buscar(empresaId, textoOVacio(filtro.nombre()), filtro.estado(),
-                        textoOVacio(filtro.categoria()), filtro.activo(), pageable),
+                        textoOVacio(filtro.categoria()), filtro.activo(), orden),
                 p -> ProcesoResponse.de(p, empresaId));
     }
 
@@ -166,9 +166,9 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<HistorialResponse> historial(Long id, Long empresaId, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_HISTORIAL);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_HISTORIAL);
         Proceso proceso = obtenerParaLecturaPropia(id, empresaId);
-        return historialService.listarPorProceso(proceso.getId(), proceso.getEmpresaId(), pageable);
+        return historialService.listarPorProceso(proceso.getId(), proceso.getEmpresaId(), orden);
     }
 
     @Override
@@ -232,8 +232,8 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<ProcesoCompartidoResponse> compartidosConmigo(Long empresaId, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
-        var pagina = procesoRepository.buscarCompartidosCon(empresaId, pageable);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        var pagina = procesoRepository.buscarCompartidosCon(empresaId, orden);
         Map<Long, String> propietarias = empresaRepository.findAllById(
                         pagina.getContent().stream().map(Proceso::getEmpresaId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(Empresa::getId, Empresa::getNombre, (a, c) -> a));

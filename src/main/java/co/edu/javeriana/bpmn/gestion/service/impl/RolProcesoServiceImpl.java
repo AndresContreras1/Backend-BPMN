@@ -43,9 +43,9 @@ public class RolProcesoServiceImpl implements RolProcesoService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<RolProcesoResponse> listar(Long empresaId, String nombre, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
         Page<RolProceso> pagina = rolRepository.findByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(
-                empresaId, nombre == null ? "" : nombre.trim(), pageable);
+                empresaId, nombre == null ? "" : nombre.trim(), orden);
 
         List<Long> ids = pagina.getContent().stream().map(RolProceso::getId).toList();
         Map<Long, List<ProcesoResumen>> usoPorRol = ids.isEmpty() ? Map.of()

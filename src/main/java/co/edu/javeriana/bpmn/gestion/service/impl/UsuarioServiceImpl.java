@@ -34,10 +34,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<UsuarioResponse> listar(Long empresaId, String nombre, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
         String filtro = nombre == null ? "" : nombre.trim();
         return PageResponse.de(
-                usuarioRepository.findByEmpresaIdAndNombreContainingIgnoreCase(empresaId, filtro, pageable),
+                usuarioRepository.findByEmpresaIdAndNombreContainingIgnoreCase(empresaId, filtro, orden),
                 UsuarioResponse::de);
     }
 
