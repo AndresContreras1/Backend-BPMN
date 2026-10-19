@@ -24,6 +24,7 @@
         <springdoc.version>2.8.17</springdoc.version>
         <archunit.version>1.5.1</archunit.version>
         <jjwt.version>0.12.7</jjwt.version>
+        <bucket4j.version>8.19.0</bucket4j.version>
 
         <!-- SonarCloud: organizacion y llave se pueden sobrescribir con -Dsonar.organization y -Dsonar.projectKey -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -73,6 +74,13 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Rate limiting del login y el registro: cubo de fichas en memoria -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>${bucket4j.version}</version>
         </dependency>
 
         <!-- Migraciones del esquema de PostgreSQL (perfil prod) -->
