@@ -46,7 +46,7 @@ class CascadaFisicaIT extends IntegracionBase {
         api.post(admin, "/api/v1/procesos/{id}/mensajes/catch", Map.of("poolId", proveedor, "laneId", lane, "nombre", "Orden",
                 "variante", "INICIO", "actividadesQueUsanIds", List.of(actividad),
                 "campos", List.of(Map.of("nombre", "numero", "tipoDato", "TEXTO"))), proceso).andExpect(status().isCreated());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
                 .andExpect(status().isOk());
 
         TABLAS_DEL_PROCESO.forEach(tabla -> assertThat(contar(tabla)).as(tabla).isPositive());

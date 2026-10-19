@@ -8,7 +8,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -18,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.javeriana.bpmn.common.dto.PageResponse;
+import co.edu.javeriana.bpmn.gestion.dto.CambioEstadoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.CambioRolRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioResponse;
@@ -77,19 +77,12 @@ public class UsuarioController {
         return usuarioService.cambiarRol(id, request, principal.empresaId(), principal.usuarioId());
     }
 
-    // PATCH http://localhost:8090/api/v1/usuarios/{id}/desactivar
-    @PatchMapping("/{id}/desactivar")
-    @Operation(summary = "HU-02 · Desactivar usuario", description = "No borra: conserva su historial y sus procesos siguen siendo de la empresa")
-    public UsuarioResponse desactivar(@PathVariable Long id,
-                                      @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
-        return usuarioService.desactivar(id, principal.empresaId(), principal.usuarioId());
-    }
-
-    // PATCH http://localhost:8090/api/v1/usuarios/{id}/activar
-    @PatchMapping("/{id}/activar")
-    @Operation(summary = "HU-02 · Reactivar usuario")
-    public UsuarioResponse activar(@PathVariable Long id,
-                                   @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
-        return usuarioService.activar(id, principal.empresaId());
+    // PUT http://localhost:8090/api/v1/usuarios/{id}/estado
+    @PutMapping("/{id}/estado")
+    @Operation(summary = "HU-02 · Desactivar o reactivar usuario",
+            description = "Desactivar no borra: conserva su historial y sus procesos siguen siendo de la empresa")
+    public UsuarioResponse cambiarEstado(@PathVariable Long id, @Valid @RequestBody CambioEstadoRequest request,
+                                         @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
+        return usuarioService.cambiarEstado(id, request, principal.empresaId(), principal.usuarioId());
     }
 }

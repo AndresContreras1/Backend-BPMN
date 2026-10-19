@@ -227,7 +227,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
         String tokenB = api.registrarEmpresaYEntrar("Empresa B", "800333444-5", "admin@b.com");
 
         api.get(tokenB, "/api/v1/usuarios/{id}", idEva).andExpect(status().isNotFound());
-        api.patch(tokenB, "/api/v1/usuarios/{id}/desactivar", idEva).andExpect(status().isNotFound());
+        api.put(tokenB, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idEva).andExpect(status().isNotFound());
         api.put(tokenB, "/api/v1/usuarios/{id}/rol", Map.of("rol", "LECTOR"), idEva).andExpect(status().isNotFound());
     }
 
@@ -251,7 +251,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
 
         api.put(tokenAdminA, "/api/v1/usuarios/{id}/rol", Map.of("rol", "EDITOR"), idAdmin)
                 .andExpect(status().isConflict());
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/desactivar", idAdmin)
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idAdmin)
                 .andExpect(status().isConflict());
     }
 
@@ -261,7 +261,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
         long idEva = usuarioRepository.findByCorreoIgnoreCase("eva@a.com").orElseThrow().getId();
         api.get(tokenEva, "/api/v1/auth/yo").andExpect(status().isOk());
 
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/desactivar", idEva)
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idEva)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activo").value(false));
 
@@ -273,7 +273,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activo", is(false)));
 
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/activar", idEva).andExpect(status().isOk());
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", true), idEva).andExpect(status().isOk());
         api.intentarLogin("eva@a.com", "ClaveInicial1").andExpect(status().isOk());
     }
 

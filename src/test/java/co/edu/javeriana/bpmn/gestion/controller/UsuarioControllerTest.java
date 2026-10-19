@@ -6,8 +6,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +25,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import co.edu.javeriana.bpmn.common.dto.PageResponse;
+import co.edu.javeriana.bpmn.gestion.dto.CambioEstadoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioResponse;
 import co.edu.javeriana.bpmn.gestion.entity.RolAcceso;
 import co.edu.javeriana.bpmn.gestion.service.UsuarioService;
@@ -87,11 +88,14 @@ class UsuarioControllerTest {
 
     @Test
     @ConEmpresa(empresa = 1, usuario = 10, rol = "ADMINISTRADOR")
-    void UsuarioController_desactivar_PasaElActorParaImpedirAutodesactivacion() throws Exception {
-        when(usuarioService.desactivar(5L, 1L, 10L)).thenReturn(eva());
+    void UsuarioController_cambiarEstado_PasaElActorParaImpedirAutodesactivacion() throws Exception {
+        CambioEstadoRequest desactivar = new CambioEstadoRequest(false);
+        when(usuarioService.cambiarEstado(5L, desactivar, 1L, 10L)).thenReturn(eva());
 
-        mockMvc.perform(patch("/api/v1/usuarios/5/desactivar")).andExpect(status().isOk());
-        verify(usuarioService).desactivar(5L, 1L, 10L);
+        mockMvc.perform(put("/api/v1/usuarios/5/estado").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"activo\": false}"))
+                .andExpect(status().isOk());
+        verify(usuarioService).cambiarEstado(5L, desactivar, 1L, 10L);
     }
 
     @Test

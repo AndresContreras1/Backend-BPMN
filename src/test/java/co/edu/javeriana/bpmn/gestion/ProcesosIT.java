@@ -270,7 +270,7 @@ class ProcesosIT extends IntegracionBase {
     void HU02_procesosSonDeLaEmpresa_SiElAutorSeDesactivaSiguenDisponibles() throws Exception {
         long id = crear(editor, "Vacaciones", "TH");
         long idEditor = api.id(api.get(admin, "/api/v1/usuarios?nombre=EDITOR"), "content.0.id");
-        api.patch(admin, "/api/v1/usuarios/{id}/desactivar", idEditor);
+        api.put(admin, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idEditor);
 
         api.get(lector, "/api/v1/procesos/{id}", id).andExpect(status().isOk())
                 .andExpect(jsonPath("$.creadoPor").value("editor@a.com"));
