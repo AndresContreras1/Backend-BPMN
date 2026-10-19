@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
@@ -23,4 +25,7 @@ public interface PoolRepository extends JpaRepository<Pool, Long> {
     boolean existsByProcesoIdAndNombreIgnoreCaseAndActivoTrue(Long procesoId, String nombre);
 
     boolean existsByProcesoIdAndNombreIgnoreCaseAndActivoTrueAndIdNot(Long procesoId, String nombre, Long id);
+
+    @Query("select coalesce(max(p.orden), -1) from Pool p where p.proceso.id = :procesoId and p.activo = true")
+    int ultimoOrden(@Param("procesoId") Long procesoId);
 }
