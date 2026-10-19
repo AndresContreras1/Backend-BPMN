@@ -136,7 +136,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));"
+                  "pm.test(\"Responde 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Código interno REGLA_DE_NEGOCIO\", () => pm.expect(pm.response.json().codigo).to.eql(\"REGLA_DE_NEGOCIO\"));"
                 ]
               }
             }
@@ -183,7 +184,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Responde 400\", () => pm.response.to.have.status(400));",
-                  "pm.test(\"Trae el error de cada campo\", () => pm.expect(pm.response.json().errors).to.have.property(\"nit\"));"
+                  "pm.test(\"Trae el error de cada campo\", () => pm.expect(pm.response.json().errors).to.have.property(\"nit\"));",
+                  "pm.test(\"Código interno DATOS_INVALIDOS\", () => pm.expect(pm.response.json().codigo).to.eql(\"DATOS_INVALIDOS\"));"
                 ]
               }
             }
@@ -332,7 +334,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));",
-                  "pm.test(\"Mensaje genérico\", () => pm.expect(pm.response.json().detail).to.eql(\"Correo o contraseña incorrectos\"));"
+                  "pm.test(\"Mensaje genérico\", () => pm.expect(pm.response.json().detail).to.eql(\"Correo o contraseña incorrectos\"));",
+                  "pm.test(\"Código interno CREDENCIALES_INVALIDAS\", () => pm.expect(pm.response.json().codigo).to.eql(\"CREDENCIALES_INVALIDAS\"));"
                 ]
               }
             }
@@ -424,7 +427,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));"
+                  "pm.test(\"Responde 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Código interno NO_AUTENTICADO\", () => pm.expect(pm.response.json().codigo).to.eql(\"NO_AUTENTICADO\"));"
                 ]
               }
             }
@@ -1111,6 +1115,39 @@
           ]
         },
         {
+          "name": "Resumen para el inicio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/procesos/resumen",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "procesos",
+                "resumen"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Responde 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"El total suma borradores y publicados\", () => pm.expect(r.total).to.eql(r.borradores + r.publicados));",
+                  "pm.test(\"Trae eliminados y compartidos conmigo\", () => { pm.expect(r).to.have.property(\"eliminados\"); pm.expect(r).to.have.property(\"compartidosConmigo\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Lector no crea (403)",
           "request": {
             "method": "POST",
@@ -1157,7 +1194,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));"
+                  "pm.test(\"Responde 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Código interno SIN_PERMISOS\", () => pm.expect(pm.response.json().codigo).to.eql(\"SIN_PERMISOS\"));"
                 ]
               }
             }
@@ -1187,7 +1225,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Responde 404\", () => pm.response.to.have.status(404));"
+                  "pm.test(\"Responde 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Código interno RECURSO_NO_ENCONTRADO\", () => pm.expect(pm.response.json().codigo).to.eql(\"RECURSO_NO_ENCONTRADO\"));"
                 ]
               }
             }
