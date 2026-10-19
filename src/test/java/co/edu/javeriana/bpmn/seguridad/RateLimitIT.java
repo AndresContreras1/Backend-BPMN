@@ -18,10 +18,14 @@ import co.edu.javeriana.bpmn.soporte.IntegracionBase;
  * Límite de intentos (cubo de fichas por IP): el login y el registro responden 429 con Retry-After cuando
  * se agota el cubo, y el resto de la API no se ve afectada. Límites bajos solo para esta clase de prueba;
  * los cubos guardan estado, así que cada prueba arranca con un contexto (y unos cubos) nuevos.
+ *
+ * Usa su propia base en memoria: al cerrarse cada contexto, create-drop borra las tablas, y si compartiera
+ * testdb dejaría sin esquema al contexto en caché que usan las demás pruebas de integración.
  */
 @TestPropertySource(properties = {
         "app.rate-limit.login.capacidad=3",
-        "app.rate-limit.registro.capacidad=2" })
+        "app.rate-limit.registro.capacidad=2",
+        "spring.datasource.url=jdbc:h2:mem:ratelimitdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1" })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class RateLimitIT extends IntegracionBase {
 
