@@ -65,6 +65,9 @@ import co.edu.javeriana.bpmn.security.ApiPrincipal;
 public class DataLoader implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataLoader.class);
+    private static final String TALENTO_HUMANO = "Talento humano";
+    /** Clave de correlación de los mensajes de compras (HU-28). */
+    private static final String NUMERO_ORDEN = "numeroOrden";
 
     private final EmpresaRepository empresaRepository;
     private final UsuarioRepository usuarioRepository;
@@ -138,7 +141,7 @@ public class DataLoader implements CommandLineRunner {
     /** El proceso de solicitud de vacaciones del enunciado, publicado y coherente. */
     private long vacaciones(Long empresa, Map<String, Long> roles) {
         long proceso = procesoService.crear(new ProcesoRequest("Solicitud de vacaciones",
-                "Radicación, revisión y aprobación de las vacaciones de un empleado", "Talento humano"), empresa).id();
+                "Radicación, revisión y aprobación de las vacaciones de un empleado", TALENTO_HUMANO), empresa).id();
         long pool = poolService.listar(proceso, empresa).get(0).id();
         long correo = poolService.crear(proceso, new PoolRequest("Servicio de correo", TipoPool.SISTEMA_EXTERNO, true), empresa).id();
         long empleado = lane(pool, roles.get("Empleado"), empresa);
@@ -172,7 +175,7 @@ public class DataLoader implements CommandLineRunner {
         arco(proceso, rechazo, finRechazada, null, empresa);
 
         procesoService.actualizar(proceso, new ProcesoActualizacionRequest("Solicitud de vacaciones",
-                "Radicación, revisión y aprobación de las vacaciones de un empleado", "Talento humano",
+                "Radicación, revisión y aprobación de las vacaciones de un empleado", TALENTO_HUMANO,
                 EstadoProceso.PUBLICADO, null), empresa);
         return proceso;
     }
@@ -186,25 +189,25 @@ public class DataLoader implements CommandLineRunner {
         long analista = lane(pool, roles.get("Analista"), empresa);
         long supervisor = lane(pool, roles.get("Supervisor"), empresa);
         long vendedor = lane(proveedor, roles.get("Vendedor"), empresa);
-        List<CampoRequest> orden = List.of(new CampoRequest("numeroOrden", TipoDato.TEXTO), new CampoRequest("valor", TipoDato.DECIMAL));
+        List<CampoRequest> orden = List.of(new CampoRequest(NUMERO_ORDEN, TipoDato.TEXTO), new CampoRequest("valor", TipoDato.DECIMAL));
 
         long inicio = eventoService.crear(pool, new EventoRequest(EventoRequest.TipoEvento.INICIO, "Necesidad de compra", analista, 40, 0), empresa).id();
         long registrar = actividad(analista, "Registrar orden", TipoActividad.USUARIO, 160, empresa);
         long aprobar = actividad(supervisor, "Aprobar orden", TipoActividad.USUARIO, 320, empresa);
         var envioOrden = mensajeService.crearThrow(proceso, new MensajeThrowRequest(pool, supervisor, "OrdenDeCompra",
-                VarianteEvento.INTERMEDIO, proveedor, orden, "numeroOrden", 480, 0), empresa).mensaje();
+                VarianteEvento.INTERMEDIO, proveedor, orden, NUMERO_ORDEN, 480, 0), empresa).mensaje();
         var esperaDespacho = mensajeService.crearCatch(proceso, new MensajeCatchRequest(pool, analista, "ConfirmacionDespacho",
-                VarianteEvento.INTERMEDIO, false, List.of(new CampoRequest("numeroOrden", TipoDato.TEXTO),
-                new CampoRequest("fechaDespacho", TipoDato.FECHA)), List.of(), "numeroOrden", 640, 0), empresa).mensaje();
+                VarianteEvento.INTERMEDIO, false, List.of(new CampoRequest(NUMERO_ORDEN, TipoDato.TEXTO),
+                new CampoRequest("fechaDespacho", TipoDato.FECHA)), List.of(), NUMERO_ORDEN, 640, 0), empresa).mensaje();
         long recibir = actividad(analista, "Recibir mercancía", TipoActividad.MANUAL, 800, empresa);
         long fin = eventoService.crear(pool, new EventoRequest(EventoRequest.TipoEvento.FIN, "Compra cerrada", analista, 960, 0), empresa).id();
 
         var llegaOrden = mensajeService.crearCatch(proceso, new MensajeCatchRequest(proveedor, vendedor, "OrdenDeCompra",
-                VarianteEvento.INICIO, false, orden, List.of(), "numeroOrden", 480, 0), empresa).mensaje();
+                VarianteEvento.INICIO, false, orden, List.of(), NUMERO_ORDEN, 480, 0), empresa).mensaje();
         long despachar = actividad(vendedor, "Despachar pedido", TipoActividad.MANUAL, 640, empresa);
         var confirmar = mensajeService.crearThrow(proceso, new MensajeThrowRequest(proveedor, vendedor, "ConfirmacionDespacho",
-                VarianteEvento.FIN, pool, List.of(new CampoRequest("numeroOrden", TipoDato.TEXTO),
-                new CampoRequest("fechaDespacho", TipoDato.FECHA)), "numeroOrden", 800, 0), empresa).mensaje();
+                VarianteEvento.FIN, pool, List.of(new CampoRequest(NUMERO_ORDEN, TipoDato.TEXTO),
+                new CampoRequest("fechaDespacho", TipoDato.FECHA)), NUMERO_ORDEN, 800, 0), empresa).mensaje();
 
         arco(proceso, inicio, registrar, null, empresa);
         arco(proceso, registrar, aprobar, null, empresa);
@@ -219,7 +222,7 @@ public class DataLoader implements CommandLineRunner {
     /** Mismo nombre de proceso en otra empresa: los espacios son independientes (HU-01). */
     private void vacacionesAndina(Long empresa, Map<String, Long> roles) {
         long proceso = procesoService.crear(new ProcesoRequest("Solicitud de vacaciones",
-                "Versión simplificada de Comercial Andina", "Talento humano"), empresa).id();
+                "Versión simplificada de Comercial Andina", TALENTO_HUMANO), empresa).id();
         long pool = poolService.listar(proceso, empresa).get(0).id();
         long coordinador = lane(pool, roles.get("Coordinador"), empresa);
         long inicio = eventoService.crear(pool, new EventoRequest(EventoRequest.TipoEvento.INICIO, null, coordinador, 40, 0), empresa).id();
