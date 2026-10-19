@@ -23,6 +23,7 @@ import co.edu.javeriana.bpmn.modelado.dto.ReordenLanesRequest;
 import co.edu.javeriana.bpmn.modelado.entity.Lane;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.repository.LaneRepository;
+import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.service.LaneService;
 import co.edu.javeriana.bpmn.modelado.service.PoolService;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class LaneServiceImpl implements LaneService {
 
     private final LaneRepository laneRepository;
+    private final NodoFlujoRepository nodoRepository;
     private final PoolService poolService;
     private final RolProcesoService rolProcesoService;
     private final HistorialService historialService;
@@ -115,6 +117,11 @@ public class LaneServiceImpl implements LaneService {
     public void eliminar(Long id, Long empresaId) {
         Lane lane = obtenerDeEmpresa(id, empresaId);
         reglasDeEstructura.verificarPuedeModificar(lane.getPool().getProceso());
+        long elementos = nodoRepository.countByLaneIdAndActivoTrue(id);
+        if (elementos > 0) {
+            throw new ReglaDeNegocioException("La lane '" + lane.getRol().getNombre() + "' contiene " + elementos
+                    + " elementos: reasígnelos a otra lane antes de eliminarla");
+        }
         lane.setActivo(false);
         historialService.registrar(lane.getPool().getProceso(), TipoCambio.ELIMINACION, ElementoHistorial.LANE, id,
                 "Lane '" + lane.getRol().getNombre() + "' eliminada del pool '" + lane.getPool().getNombre() + "'");
