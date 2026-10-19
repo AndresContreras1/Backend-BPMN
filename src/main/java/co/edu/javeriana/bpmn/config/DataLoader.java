@@ -260,8 +260,13 @@ public class DataLoader implements CommandLineRunner {
         return usuarioRepository.save(usuario);
     }
 
-    /** Los servicios exigen un usuario autenticado (permisos e historial): se usa el administrador de cada empresa. */
-    private static void como(Usuario usuario) {
+    /**
+     * Los servicios exigen un usuario autenticado (permisos e historial): se usa el administrador de cada empresa.
+     * Antes de cambiar de usuario se escriben los cambios pendientes: la auditoría (modificadoPor) se calcula al
+     * escribir en la base y debe quedar con el usuario que hizo el cambio, no con el siguiente.
+     */
+    private void como(Usuario usuario) {
+        usuarioRepository.flush();
         ApiPrincipal principal = ApiPrincipal.de(usuario);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));

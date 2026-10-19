@@ -57,7 +57,10 @@ class DatosDemoIT {
                 .andExpect(jsonPath("$.nodos", hasSize(9)))
                 .andExpect(jsonPath("$.mensajes[0].claveCorrelacion").value("numeroSolicitud"))
                 .andExpect(jsonPath("$.advertencias", empty()));
-        api.get(admin, "/api/v1/procesos?activo=false").andExpect(jsonPath("$.content[0].nombre").value("Control de calidad 2024"));
+        api.get(admin, "/api/v1/procesos?activo=false")
+                .andExpect(jsonPath("$.content[0].nombre").value("Control de calidad 2024"))
+                // la auditoría queda con quien lo eliminó, aunque después se carguen los datos de otra empresa
+                .andExpect(jsonPath("$.content[0].modificadoPor").value("admin@demo.com"));
 
         String andina = api.login("admin@andina.com", "admin123");
         api.get(andina, "/api/v1/procesos/compartidos")
