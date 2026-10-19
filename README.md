@@ -55,6 +55,7 @@ Usuarios:
 - Todas las consultas se filtran por la empresa del usuario autenticado; un recurso de otra empresa responde 404.
 - Roles de acceso: `ADMINISTRADOR`, `EDITOR`, `LECTOR` (los permisos se declaran con `@PreAuthorize` en los servicios).
 - Errores 401/403 con el mismo formato ProblemDetail del resto de la API.
+- Límite de intentos por IP en el login y el registro (cubo de fichas con Bucket4j): pasado el límite responde `429 Too Many Requests` con `Retry-After`. Por defecto 10 intentos por minuto en el login y 10 registros por hora.
 
 ## Endpoints
 
@@ -69,7 +70,7 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-02 | `GET /usuarios?nombre=` | Usuarios de mi empresa (paginado) | todos |
 | HU-02 | `POST /usuarios` | Invitar usuario con rol y contraseña inicial | ADMINISTRADOR |
 | HU-02 | `PUT /usuarios/{id}/rol` | Cambiar rol de acceso | ADMINISTRADOR |
-| HU-02 | `PATCH /usuarios/{id}/desactivar` · `/activar` | Desactivar o reactivar sin borrar | ADMINISTRADOR |
+| HU-02 | `PUT /usuarios/{id}/estado` (`{"activo": false}`) | Desactivar o reactivar sin borrar | ADMINISTRADOR |
 | HU-07 | `GET /procesos?nombre=&estado=&categoria=&activo=` | Buscar, filtrar y paginar procesos | todos |
 | HU-07 | `GET /procesos/categorias` | Categorías en uso | todos |
 | HU-07 | `GET /procesos/{id}` · `GET /procesos/{id}/historial` | Ficha e historial de cambios | todos |
@@ -105,7 +106,7 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-28 | `PUT /mensajes/{id}/correlacion` | Clave de correlación y acción sin caso | ADMINISTRADOR, EDITOR |
 | HU-25 a 28 | `GET /procesos/{id}/mensajes` · `GET` · `PUT /mensajes/{id}` | Mensajes del proceso · consultar y editar | todos · ADMINISTRADOR, EDITOR |
 | HU-25 a 28 | `GET /mensajes/{id}/impacto` · `DELETE /mensajes/{id}` | Advertencias previas · eliminar | todos · ADMINISTRADOR |
-| HU-23 | `PUT` · `GET /procesos/{id}/compartir` | Compartir por NIT en solo lectura · estado | ADMINISTRADOR de la empresa dueña |
+| HU-23 | `PUT` · `GET /procesos/{id}/comparticion` | Compartir por NIT en solo lectura · estado | ADMINISTRADOR de la empresa dueña |
 | HU-23 | `GET /procesos/compartidos` | Procesos que otras empresas compartieron conmigo | todos |
 
 ## Coherencia del diagrama
@@ -137,11 +138,11 @@ Reglas de los arcos: no unen un elemento consigo mismo, no se repiten entre el m
 
 ## Colaboración entre empresas
 
-Por defecto un proceso solo lo ve la empresa que lo creó. Su administrador puede compartirlo por NIT con otras empresas (`PUT /procesos/{id}/compartir`): la invitada ve la ficha, el diagrama, los mensajes y las advertencias, pero no puede modificar nada (toda escritura responde 404), ni ve el historial, los usuarios o el catálogo de roles de la empresa dueña. Dejar de compartir o eliminar el proceso retira el acceso.
+Por defecto un proceso solo lo ve la empresa que lo creó. Su administrador puede compartirlo por NIT con otras empresas (`PUT /procesos/{id}/comparticion`): la invitada ve la ficha, el diagrama, los mensajes y las advertencias, pero no puede modificar nada (toda escritura responde 404), ni ve el historial, los usuarios o el catálogo de roles de la empresa dueña. Dejar de compartir o eliminar el proceso retira el acceso.
 
 ## Documentación de la API
 
-Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* con el token) y contrato OpenAPI en `http://localhost:8090/v3/api-docs`.
+Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* con el token) y contrato OpenAPI en `http://localhost:8090/v3/api-docs`. En `prod` queda publicado mientras `SWAGGER_ENABLED` no sea `false`.
 
 ## Perfiles
 
@@ -149,8 +150,21 @@ Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* 
 |---|---|---|
 | `default` | H2 en archivo, `create-drop` | Desarrollo local |
 | `test` | H2 en memoria, `create-drop` | Pruebas automatizadas |
-| `prod` | PostgreSQL, `update` | Docker Compose y despliegue |
+| `prod` | PostgreSQL con migraciones Flyway, `validate` | Docker Compose y despliegue |
 | `demo` | (se combina con otro) | Carga los datos de demostración |
+
+### Migraciones (perfil `prod`)
+
+El esquema de PostgreSQL vive en `src/main/resources/db/migration` y lo aplica Flyway al arrancar, antes que Hibernate:
+
+| Archivo | Qué hace |
+|---|---|
+| `V1__esquema_inicial.sql` | Tablas, restricciones `CHECK`, llaves foráneas (todas las tablas hacia `empresa`) e índices |
+| `V2__nombres_unicos_entre_activos.sql` | Índices únicos parciales: el nombre de un proceso, rol, actividad o pool solo se repite con elementos dados de baja |
+
+Hibernate arranca con `ddl-auto=validate`: si una entidad no cuadra con su tabla, la aplicación no levanta. Una migración aplicada no se edita; los cambios van en una versión nueva (`V3__…`). En desarrollo y pruebas (H2) Flyway está apagado y el esquema se recrea con `create-drop`.
+
+Una base de PostgreSQL creada antes de Flyway (por ejemplo, el volumen de un `docker compose` anterior) se puede conservar arrancando una vez con `FLYWAY_BASELINE_ON_MIGRATE=true`, o empezar de cero con `docker compose down -v`.
 
 ## Variables de entorno
 
@@ -165,6 +179,12 @@ Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* 
 | `DB_NAME` | Nombre de la base (perfil `prod`) | `procesos` |
 | `DB_USER` | Usuario de la base (perfil `prod`) | — |
 | `DB_PASSWORD` | Contraseña de la base (perfil `prod`) | — |
+| `FLYWAY_BASELINE_ON_MIGRATE` | Toma una base existente como V1 (perfil `prod`) | `false` |
+| `SWAGGER_ENABLED` | Publica Swagger UI y `/v3/api-docs` (perfil `prod`) | `true` |
+| `THREADS` | Hilos de Tomcat (perfil `prod`) | `200` |
+| `DB_POOL` | Conexiones de Hikari a PostgreSQL (perfil `prod`) | `10` |
+| `RATE_LIMIT_LOGIN` | Intentos de login por IP cada minuto | `10` |
+| `RATE_LIMIT_REGISTRO` | Registros de empresa por IP cada hora | `10` |
 
 ## Pruebas
 
@@ -183,7 +203,9 @@ Ejecuta las pruebas unitarias (`*Test`) y de integración (`*IT`) y genera el re
 | `AislamientoEntreEmpresasIT` | Cada recurso de otra empresa responde 404 al leerlo, editarlo, borrarlo o crear dentro de él |
 | `CascadaFisicaIT` | Borrar un proceso en la base elimina en cascada todo su modelo sin filas huérfanas |
 | `DatosDemoIT` | El inicializador carga datos coherentes con las reglas |
-| `ArquitecturaTest` (ArchUnit) | Capas, nombres, multiempresa e inyección por constructor |
+| `MigracionesIT` (Testcontainers) | Flyway aplica V1 y V2 sobre PostgreSQL 16 real, Hibernate valida el esquema y los datos demo se guardan; se omite si no hay Docker |
+| `RateLimitIT` | El login y el registro responden 429 con `Retry-After` al agotar el cubo, y el resto de la API no se ve afectada |
+| `ArquitecturaTest` (ArchUnit) | Capas, nombres, multiempresa, inyección por constructor, sin `System.out`, seguridad sin repositorios salvo el `UserDetailsService` y servicios sin `findById`/`findAll` sin empresa |
 
 ## Postman
 
