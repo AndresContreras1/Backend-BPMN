@@ -57,6 +57,28 @@ public class ApiDePrueba {
         return login(correo, "ClaveInicial1");
     }
 
+    /**
+     * Arma el diagrama mínimo coherente (inicio → actividad → fin) en el pool de la empresa,
+     * para poder publicar el proceso. Necesita un administrador para crear el rol de proceso.
+     */
+    public void armarDiagramaMinimo(String tokenAdmin, long procesoId) throws Exception {
+        long pool = id(get(tokenAdmin, "/api/v1/procesos/{id}/pools", procesoId), "0.id");
+        long rol = id(post(tokenAdmin, "/api/v1/roles-proceso",
+                Map.of("nombre", "Responsable " + procesoId)).andExpect(status().isCreated()), "id");
+        long lane = id(post(tokenAdmin, "/api/v1/pools/{id}/lanes", Map.of("rolProcesoId", rol), pool)
+                .andExpect(status().isCreated()), "id");
+        long inicio = id(post(tokenAdmin, "/api/v1/pools/{id}/eventos", Map.of("tipo", "INICIO", "laneId", lane), pool)
+                .andExpect(status().isCreated()), "id");
+        long tarea = id(post(tokenAdmin, "/api/v1/lanes/{id}/actividades",
+                Map.of("nombre", "Tarea " + procesoId, "tipoActividad", "TAREA"), lane).andExpect(status().isCreated()), "id");
+        long fin = id(post(tokenAdmin, "/api/v1/pools/{id}/eventos", Map.of("tipo", "FIN", "laneId", lane), pool)
+                .andExpect(status().isCreated()), "id");
+        post(tokenAdmin, "/api/v1/arcos", Map.of("procesoId", procesoId, "origenId", inicio, "destinoId", tarea))
+                .andExpect(status().isCreated());
+        post(tokenAdmin, "/api/v1/arcos", Map.of("procesoId", procesoId, "origenId", tarea, "destinoId", fin))
+                .andExpect(status().isCreated());
+    }
+
     public ResultActions get(String token, String url, Object... variables) throws Exception {
         return mockMvc.perform(conToken(MockMvcRequestBuilders.get(url, variables), token));
     }

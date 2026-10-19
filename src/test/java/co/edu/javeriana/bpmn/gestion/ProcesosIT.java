@@ -14,36 +14,19 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
-import co.edu.javeriana.bpmn.soporte.ApiDePrueba;
+import co.edu.javeriana.bpmn.soporte.IntegracionBase;
 
 /** HU-04 a HU-07 de punta a punta, con permisos por rol y aislamiento entre empresas. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
-class ProcesosIT {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class ProcesosIT extends IntegracionBase {
 
     @Autowired
     private PoolRepository poolRepository;
 
-    private ApiDePrueba api;
     private String admin;
     private String editor;
     private String lector;
@@ -51,7 +34,6 @@ class ProcesosIT {
 
     @BeforeEach
     void datos() throws Exception {
-        api = new ApiDePrueba(mockMvc, objectMapper);
         admin = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
         editor = api.crearUsuarioYEntrar(admin, "editor@a.com", "EDITOR");
         lector = api.crearUsuarioYEntrar(admin, "lector@a.com", "LECTOR");
@@ -130,6 +112,7 @@ class ProcesosIT {
     @Test
     void HU05_editarDatos_QuedaEnElHistorialConUsuarioYFecha() throws Exception {
         long id = crear(editor, "Vacaciones", "TH");
+        api.armarDiagramaMinimo(admin, id);
 
         api.put(admin, "/api/v1/procesos/{id}", edicion("Vacaciones 2026", "Talento humano", "PUBLICADO"), id)
                 .andExpect(status().isOk())
@@ -139,13 +122,25 @@ class ProcesosIT {
 
         api.get(lector, "/api/v1/procesos/{id}/historial", id)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(2))
                 .andExpect(jsonPath("$.content[0].tipo").value("CAMBIO_ESTADO"))
                 .andExpect(jsonPath("$.content[0].usuario").value("admin@a.com"))
                 .andExpect(jsonPath("$.content[0].fecha").exists())
                 .andExpect(jsonPath("$.content[0].detalle", containsString("nombre: 'Vacaciones' → 'Vacaciones 2026'")))
-                .andExpect(jsonPath("$.content[1].tipo").value("CREACION"))
-                .andExpect(jsonPath("$.content[1].usuario").value("editor@a.com"));
+                .andExpect(jsonPath("$.content[1].usuario").value("admin@a.com"));
+        api.get(lector, "/api/v1/procesos/{id}/historial?size=50", id)
+                .andExpect(jsonPath("$.content[-1:].tipo").value(org.hamcrest.Matchers.hasItem("CREACION")))
+                .andExpect(jsonPath("$.content[-1:].usuario").value(org.hamcrest.Matchers.hasItem("editor@a.com")));
+    }
+
+    @Test
+    void HU04_publicarUnDiagramaVacioOIncoherente_Responde409ConLosErrores() throws Exception {
+        long id = crear(editor, "Vacaciones", "TH");
+
+        api.put(editor, "/api/v1/procesos/{id}", edicion("Vacaciones", "TH", "PUBLICADO"), id)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("No se puede publicar: el diagrama tiene errores de coherencia"))
+                .andExpect(jsonPath("$.detalles[0]").value("El diagrama todavía no tiene elementos"));
+        api.get(editor, "/api/v1/procesos/{id}", id).andExpect(jsonPath("$.estado").value("BORRADOR"));
     }
 
     @Test
@@ -220,9 +215,11 @@ class ProcesosIT {
     @Test
     void HU07_busquedaFiltrosYPaginacion() throws Exception {
         long compras = crear(editor, "Aprobación de compras", "Compras");
+        api.armarDiagramaMinimo(admin, compras);
         crear(editor, "Solicitud de vacaciones", "Talento humano");
         crear(editor, "Pago a proveedores", "Compras");
-        api.put(editor, "/api/v1/procesos/{id}", edicion("Aprobación de compras", "Compras", "PUBLICADO"), compras);
+        api.put(editor, "/api/v1/procesos/{id}", edicion("Aprobación de compras", "Compras", "PUBLICADO"), compras)
+                .andExpect(status().isOk());
 
         api.get(lector, "/api/v1/procesos?nombre=VACA").andExpect(jsonPath("$.content[*].nombre",
                 contains("Solicitud de vacaciones")));
