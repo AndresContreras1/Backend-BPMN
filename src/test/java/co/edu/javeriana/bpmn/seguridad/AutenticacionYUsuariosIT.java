@@ -11,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +148,19 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
     }
 
     @Test
+    void HU03_tokenConElPayloadManipulado_Responde401() throws Exception {
+        // Se cambia el uid del payload y se deja la firma original: la firma deja de cuadrar
+        String[] partes = tokenAdminA.split("\\.");
+        String payload = new String(Base64.getUrlDecoder().decode(partes[1]), StandardCharsets.UTF_8)
+                .replaceFirst("\"uid\":\\d+", "\"uid\":999");
+        String manipulado = partes[0] + "."
+                + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8))
+                + "." + partes[2];
+
+        api.get(manipulado, "/api/v1/auth/yo").andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void HU03_tokenExpirado_Responde401() throws Exception {
         Usuario admin = usuarioRepository.findByCorreoIgnoreCase("admin@a.com").orElseThrow();
         String expirado = jwtService.generarToken(admin, Instant.now().minusSeconds(3600));
@@ -217,6 +232,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[*].correo", everyItem(endsWith("@b.com"))))
+                .andExpect(jsonPath("$.content[*].password").doesNotExist())
                 .andExpect(jsonPath("$.pageable").doesNotExist());
     }
 
