@@ -122,7 +122,8 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos"));
         api.intentarLogin("nadie@a.com", "ClaveSegura1")
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos"));
+                .andExpect(jsonPath("$.detail").value("Correo o contraseña incorrectos"))
+                .andExpect(jsonPath("$.codigo").value("CREDENCIALES_INVALIDAS"));
     }
 
     @Test
@@ -132,6 +133,8 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(header().string(HttpHeaders.WWW_AUTHENTICATE, "Bearer"))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.title").value("No autenticado"))
+                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty())
                 .andExpect(jsonPath("$.instance").value("/api/v1/auth/yo"));
     }
 
@@ -213,7 +216,8 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
 
         api.post(editor, "/api/v1/usuarios", cuerpo)
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.title").value("Sin permisos"));
+                .andExpect(jsonPath("$.title").value("Sin permisos"))
+                .andExpect(jsonPath("$.codigo").value("SIN_PERMISOS"));
         api.post(lector, "/api/v1/usuarios", cuerpo).andExpect(status().isForbidden());
     }
 

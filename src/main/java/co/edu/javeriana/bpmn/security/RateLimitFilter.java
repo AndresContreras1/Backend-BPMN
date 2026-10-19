@@ -11,6 +11,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import co.edu.javeriana.bpmn.common.exception.CodigoError;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.FilterChain;
@@ -68,7 +69,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         long segundos = Math.max(1, TimeUnit.NANOSECONDS.toSeconds(sonda.getNanosToWaitForRefill()));
         response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(segundos));
-        escritor.escribir(response, HttpStatus.TOO_MANY_REQUESTS,
+        escritor.escribir(response, HttpStatus.TOO_MANY_REQUESTS, CodigoError.DEMASIADAS_PETICIONES,
                 "Demasiadas peticiones",
                 "Ha superado el número de intentos permitidos. Inténtelo de nuevo en " + segundos
                         + (segundos == 1 ? " segundo." : " segundos."),

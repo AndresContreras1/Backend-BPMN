@@ -41,6 +41,7 @@ class RateLimitIT extends IntegracionBase {
                 .andExpect(header().string("X-RateLimit-Remaining", "0"))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.title").value("Demasiadas peticiones"))
+                .andExpect(jsonPath("$.codigo").value("DEMASIADAS_PETICIONES"))
                 .andExpect(jsonPath("$.detail", startsWith("Ha superado el número de intentos")))
                 .andExpect(jsonPath("$.instance").value("/api/v1/auth/login"));
     }
