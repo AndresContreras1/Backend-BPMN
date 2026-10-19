@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -47,6 +48,13 @@ public class GlobalExceptionHandler {
             pd.setProperty("detalles", ex.getDetalles());
         }
         return pd;
+    }
+
+    /** Ordenamiento por una propiedad que no existe en la entidad. */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ProblemDetail propiedadInexistente(PropertyReferenceException ex) {
+        return problema(HttpStatus.BAD_REQUEST, "Parámetro inválido",
+                "No se puede ordenar por '" + ex.getPropertyName() + "'");
     }
 
     @ExceptionHandler(ParametroInvalidoException.class)
