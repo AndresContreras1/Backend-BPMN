@@ -8,12 +8,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import co.edu.javeriana.bpmn.common.exception.NotFoundException;
+import co.edu.javeriana.bpmn.common.exception.ReglaDeNegocioException;
 import co.edu.javeriana.bpmn.modelado.dto.Advertencia;
 import co.edu.javeriana.bpmn.modelado.dto.ImpactoResponse;
 import co.edu.javeriana.bpmn.modelado.entity.Arco;
 import co.edu.javeriana.bpmn.modelado.entity.NodoFlujo;
 import co.edu.javeriana.bpmn.modelado.entity.TipoNodo;
+import co.edu.javeriana.bpmn.modelado.entity.Mensaje;
 import co.edu.javeriana.bpmn.modelado.repository.ArcoRepository;
+import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.service.NodoFlujoService;
 import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
@@ -25,6 +28,7 @@ public class NodoFlujoServiceImpl implements NodoFlujoService {
 
     private final NodoFlujoRepository nodoRepository;
     private final ArcoRepository arcoRepository;
+    private final MensajeRepository mensajeRepository;
     private final ValidadorDeProcesoService validador;
 
     @Override
@@ -51,9 +55,16 @@ public class NodoFlujoServiceImpl implements NodoFlujoService {
         List<Arco> conectados = arcoRepository.conectadosA(nodo.getId());
         Set<Long> arcos = new HashSet<>();
         conectados.forEach(a -> arcos.add(a.getId()));
+        List<Mensaje> notificaciones = mensajeRepository.findByActividadManejoErrorIdAndActivoTrue(nodo.getId());
+        if (!notificaciones.isEmpty()) {
+            throw new ReglaDeNegocioException(nodo.etiqueta() + " es la actividad de manejo de error de la notificación '"
+                    + notificaciones.get(0).getNombre() + "': cambie primero su política de fallo");
+        }
         List<Advertencia> avisos = nuevas(nodo, arcos);
 
         conectados.forEach(arco -> arco.setActivo(false));   // los arcos que entraban y salían se van con él
+        mensajeRepository.findByNodoIdAndActivoTrue(nodo.getId()).ifPresent(m -> m.setActivo(false));
+        mensajeRepository.queUsanActividad(nodo.getId()).forEach(m -> m.getActividadesQueUsan().remove(nodo));
         nodo.setActivo(false);                                 // la baja es lógica
         return avisos;
     }
