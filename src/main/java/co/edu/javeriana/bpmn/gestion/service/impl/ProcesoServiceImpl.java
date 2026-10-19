@@ -30,6 +30,8 @@ import co.edu.javeriana.bpmn.gestion.service.ProcesoService;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
+import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
+import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -38,12 +40,13 @@ public class ProcesoServiceImpl implements ProcesoService {
 
     private static final Set<String> ORDEN_PERMITIDO =
             Set.of("nombre", "categoria", "estado", "creadoEn", "modificadoEn");
-    private static final Set<String> ORDEN_HISTORIAL = Set.of("fecha", "tipo", "elemento");
+    private static final Set<String> ORDEN_HISTORIAL = Set.of("fecha", "id", "tipo", "elemento");
 
     private final ProcesoRepository procesoRepository;
     private final PoolRepository poolRepository;
     private final EmpresaService empresaService;
     private final HistorialService historialService;
+    private final ValidadorDeProcesoService validador;
 
     @Override
     @Transactional(readOnly = true)
@@ -120,6 +123,10 @@ public class ProcesoServiceImpl implements ProcesoService {
         boolean cambiaEstado = proceso.getEstado() != request.estado();
         anotar(cambios, "estado", proceso.getEstado(), request.estado());
 
+        // HU-04: en borrador el diagrama puede estar incompleto; publicado debe ser coherente
+        if (request.estado() == EstadoProceso.PUBLICADO) {
+            validador.exigirCoherenciaParaPublicar(proceso);
+        }
         proceso.setNombre(nombre);
         proceso.setDescripcion(textoONulo(request.descripcion()));
         proceso.setCategoria(request.categoria().trim());
