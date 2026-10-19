@@ -29,7 +29,14 @@ La API inicia en `http://localhost:8090` con el perfil `default` (H2 en archivo,
 
 ## Datos de demostración
 
-Con los perfiles `default` y `demo` se cargan dos empresas para probar el aislamiento entre organizaciones:
+Con los perfiles `default` y `demo` el inicializador (`DataLoader`) carga los datos usando los mismos servicios de la API, así que cumplen todas las reglas:
+
+- **Solicitud de vacaciones** (publicado): el proceso del enunciado con lanes Empleado, Jefe inmediato y Talento Humano, gateway exclusivo Sí/No, notificación al pool externo *Servicio de correo* y correlación por número de solicitud. Compartido en solo lectura con Comercial Andina.
+- **Aprobación de compras** (borrador): colaboración con el pool *Proveedor* mediante Message Throw y Message Catch correlacionados por número de orden.
+- **Control de calidad 2024** (eliminado): visible con `GET /api/v1/procesos?activo=false`.
+- Comercial Andina tiene su propio proceso **Solicitud de vacaciones**: el mismo nombre en otra empresa no interfiere.
+
+Usuarios:
 
 | Empresa | NIT | Usuario | Contraseña | Rol |
 |---|---|---|---|---|
@@ -167,6 +174,25 @@ Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* 
 
 Ejecuta las pruebas unitarias (`*Test`) y de integración (`*IT`) y genera el reporte de cobertura en `target/site/jacoco/index.html`. JaCoCo exige 50 % de cobertura de línea en todo el proyecto y 70 % de línea / 60 % de rama en los paquetes de servicio.
 
+| Suite | Qué prueba |
+|---|---|
+| `*RepositoryTest` (`@DataJpaTest`) | Consultas derivadas, JPQL, named queries, restricciones únicas y cascada |
+| `*ServiceImplTest` (Mockito) | Cada regla de negocio y cada excepción |
+| `*ControllerTest` (`@WebMvcTest`) | Mapeo, validación y códigos HTTP |
+| `*IT` (`@SpringBootTest` + JWT real) | Las 28 historias de usuario de punta a punta, con una transacción por petición |
+| `AislamientoEntreEmpresasIT` | Cada recurso de otra empresa responde 404 al leerlo, editarlo, borrarlo o crear dentro de él |
+| `CascadaFisicaIT` | Borrar un proceso en la base elimina en cascada todo su modelo sin filas huérfanas |
+| `DatosDemoIT` | El inicializador carga datos coherentes con las reglas |
+| `ArquitecturaTest` (ArchUnit) | Capas, nombres, multiempresa e inyección por constructor |
+
+## Postman
+
+La colección `postman/BPMN-API.postman_collection.json` (con el entorno `postman/local.postman_environment.json`) recorre las 28 historias en orden: registra una empresa, inicia sesión, crea usuarios, roles, un proceso con su diagrama, una notificación externa con correlación, lo publica, lo comparte y lo elimina. Cada petición tiene su prueba de código HTTP y las variables (`token`, `procesoId`, `laneId`…) se guardan solas.
+
+```bash
+npx newman run postman/BPMN-API.postman_collection.json -e postman/local.postman_environment.json
+```
+
 ## Docker
 
 Imagen sola:
@@ -183,9 +209,19 @@ docker compose up -d --build
 docker compose down
 ```
 
+## Eliminación en cascada
+
+Lo que el usuario elimina es lógico (`activo = false`) para conservar la trazabilidad. Además, las llaves foráneas se generan con `ON DELETE CASCADE` (`@OnDelete`): si un proceso se borrara de la base, se irían sus pools, lanes, nodos, arcos, mensajes, campos, usos de datos, historial y comparticiones, sin tocar el catálogo de la empresa.
+
 ## Integración continua
 
 El workflow `.github/workflows/ci.yml` corre en cada pull request y en cada push a `main`: compila, ejecuta `./mvnw verify`, publica el reporte de JaCoCo y construye la imagen Docker. El análisis de SonarCloud se activa cuando el repositorio tiene el secreto `SONAR_TOKEN`.
+
+`.github/workflows/deploy.yaml` es el despliegue del curso (imagen a GHCR y `microk8s kubectl apply -f k8s/deployment.yaml` en el runner self-hosted). Se ejecuta a mano hasta registrar el runner en la entrega 3.
+
+## Documentación técnica
+
+Arquitectura, modelo de datos, mapa de historias a clases, códigos HTTP y estrategia de pruebas en [docs/guia-tecnica.md](docs/guia-tecnica.md).
 
 ## Flujo de trabajo
 
