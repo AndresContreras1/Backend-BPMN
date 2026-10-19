@@ -79,11 +79,11 @@ public class ApiDePrueba {
         return mockMvc.perform(conToken(MockMvcRequestBuilders.delete(url, variables), token));
     }
 
-    /** Lee un campo numérico de la respuesta (por ejemplo "id" o "empresa.id"). */
+    /** Lee un campo numérico de la respuesta (por ejemplo "id", "empresa.id" o "content.0.id"). */
     public long id(ResultActions resultado, String ruta) throws Exception {
         JsonNode nodo = objectMapper.readTree(resultado.andReturn().getResponse().getContentAsString());
         for (String parte : ruta.split("\\.")) {
-            nodo = nodo.get(parte);
+            nodo = nodo.isArray() ? nodo.get(Integer.parseInt(parte)) : nodo.get(parte);
         }
         return nodo.asLong();
     }
