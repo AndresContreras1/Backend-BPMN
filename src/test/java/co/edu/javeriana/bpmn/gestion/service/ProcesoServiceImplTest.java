@@ -213,7 +213,7 @@ class ProcesoServiceImplTest {
     void ProcesoService_obtener_InactivoSePuedeConsultar() {
         Proceso inactivo = vacaciones();
         inactivo.setActivo(false);
-        when(procesoRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(inactivo));
+        when(procesoRepository.findLegibleByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(inactivo));
 
         assertThat(procesoService.obtener(5L, EMPRESA).activo()).isFalse();
     }
