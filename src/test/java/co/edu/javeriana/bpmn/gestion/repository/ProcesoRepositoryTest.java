@@ -18,6 +18,7 @@ import co.edu.javeriana.bpmn.gestion.entity.ElementoHistorial;
 import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
 import co.edu.javeriana.bpmn.gestion.entity.HistorialCambio;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
+import co.edu.javeriana.bpmn.gestion.entity.ProcesoCompartido;
 import co.edu.javeriana.bpmn.gestion.entity.TipoCambio;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
@@ -122,6 +123,29 @@ class ProcesoRepositoryTest {
     void ProcesoRepository_namedQueryContarPorEstado() {
         assertThat(procesoRepository.contarPorEstado(EMPRESA_A, EstadoProceso.BORRADOR)).isEqualTo(1);
         assertThat(procesoRepository.contarPorEstado(EMPRESA_A, EstadoProceso.PUBLICADO)).isEqualTo(1);
+    }
+
+    @Test
+    void ProcesoRepository_contarEliminados_SoloLosInactivosDeLaEmpresa() {
+        assertThat(procesoRepository.countByEmpresaIdAndActivoFalse(EMPRESA_A)).isEqualTo(1);
+        assertThat(procesoRepository.countByEmpresaIdAndActivoFalse(EMPRESA_B)).isZero();
+    }
+
+    @Test
+    void ProcesoRepository_contarCompartidosCon_IgnoraLasComparticionesRetiradas() {
+        compartir(vacaciones, EMPRESA_B, true);
+        Proceso compras = buscar(EMPRESA_A, "compras", null, "", true).getContent().get(0);
+        compartir(compras, EMPRESA_B, false);
+
+        assertThat(procesoRepository.contarCompartidosCon(EMPRESA_B)).isEqualTo(1);
+        assertThat(procesoRepository.contarCompartidosCon(EMPRESA_A)).isZero();
+    }
+
+    private void compartir(Proceso proceso, Long empresaInvitada, boolean activo) {
+        ProcesoCompartido c = ProcesoCompartido.builder().proceso(proceso).empresaInvitadaId(empresaInvitada)
+                .activo(activo).build();
+        c.setEmpresaId(proceso.getEmpresaId());
+        entityManager.persist(c);
     }
 
     @Test

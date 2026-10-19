@@ -31,6 +31,7 @@ import co.edu.javeriana.bpmn.gestion.dto.FiltroProceso;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
+import co.edu.javeriana.bpmn.gestion.dto.ResumenProcesosResponse;
 import co.edu.javeriana.bpmn.gestion.entity.ElementoHistorial;
 import co.edu.javeriana.bpmn.gestion.entity.Empresa;
 import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
@@ -230,6 +231,16 @@ class ProcesoServiceImplTest {
 
         assertThatThrownBy(() -> procesoService.listar(EMPRESA, new FiltroProceso(null, null, null, true),
                 PageRequest.of(0, 10, Sort.by("empresaId")))).isInstanceOf(ParametroInvalidoException.class);
+    }
+
+    @Test
+    void ProcesoService_resumen_SumaLosActivosPorEstadoYAgregaEliminadosYCompartidos() {
+        when(procesoRepository.contarPorEstado(EMPRESA, EstadoProceso.BORRADOR)).thenReturn(3L);
+        when(procesoRepository.contarPorEstado(EMPRESA, EstadoProceso.PUBLICADO)).thenReturn(2L);
+        when(procesoRepository.countByEmpresaIdAndActivoFalse(EMPRESA)).thenReturn(1L);
+        when(procesoRepository.contarCompartidosCon(EMPRESA)).thenReturn(4L);
+
+        assertThat(procesoService.resumen(EMPRESA)).isEqualTo(new ResumenProcesosResponse(5, 3, 2, 1, 4));
     }
 
     @Test

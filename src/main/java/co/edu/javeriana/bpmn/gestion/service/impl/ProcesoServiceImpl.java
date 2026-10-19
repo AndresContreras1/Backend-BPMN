@@ -27,6 +27,7 @@ import co.edu.javeriana.bpmn.gestion.dto.HistorialResponse;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
+import co.edu.javeriana.bpmn.gestion.dto.ResumenProcesosResponse;
 import co.edu.javeriana.bpmn.gestion.entity.ElementoHistorial;
 import co.edu.javeriana.bpmn.gestion.entity.Empresa;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
@@ -74,6 +75,17 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Transactional(readOnly = true)
     public List<String> categorias(Long empresaId) {
         return procesoRepository.listarCategoriasDeEmpresa(empresaId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ResumenProcesosResponse resumen(Long empresaId) {
+        // Named query Proceso.contarPorEstado: solo cuenta los activos
+        long borradores = procesoRepository.contarPorEstado(empresaId, EstadoProceso.BORRADOR);
+        long publicados = procesoRepository.contarPorEstado(empresaId, EstadoProceso.PUBLICADO);
+        return new ResumenProcesosResponse(borradores + publicados, borradores, publicados,
+                procesoRepository.countByEmpresaIdAndActivoFalse(empresaId),
+                procesoRepository.contarCompartidosCon(empresaId));
     }
 
     @Override
