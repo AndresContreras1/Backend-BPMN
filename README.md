@@ -49,6 +49,27 @@ Con los perfiles `default` y `demo` se cargan dos empresas para probar el aislam
 - Roles de acceso: `ADMINISTRADOR`, `EDITOR`, `LECTOR` (los permisos se declaran con `@PreAuthorize` en los servicios).
 - Errores 401/403 con el mismo formato ProblemDetail del resto de la API.
 
+## Endpoints
+
+Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados devuelven `PageResponse` (`content`, `page`, `size`, `totalElements`, `totalPages`).
+
+| HU | Método y ruta | Descripción | Rol |
+|---|---|---|---|
+| HU-01 | `POST /empresas` | Registrar empresa y su administrador inicial | público |
+| HU-03 | `GET /empresas/actual` | Empresa del usuario autenticado | todos |
+| HU-03 | `POST /auth/login` | Iniciar sesión (devuelve el JWT) | público |
+| HU-03 | `GET /auth/yo` · `POST /auth/logout` | Usuario autenticado · cerrar sesión | todos |
+| HU-02 | `GET /usuarios?nombre=` | Usuarios de mi empresa (paginado) | todos |
+| HU-02 | `POST /usuarios` | Invitar usuario con rol y contraseña inicial | ADMINISTRADOR |
+| HU-02 | `PUT /usuarios/{id}/rol` | Cambiar rol de acceso | ADMINISTRADOR |
+| HU-02 | `PATCH /usuarios/{id}/desactivar` · `/activar` | Desactivar o reactivar sin borrar | ADMINISTRADOR |
+| HU-07 | `GET /procesos?nombre=&estado=&categoria=&activo=` | Buscar, filtrar y paginar procesos | todos |
+| HU-07 | `GET /procesos/categorias` | Categorías en uso | todos |
+| HU-07 | `GET /procesos/{id}` · `GET /procesos/{id}/historial` | Ficha e historial de cambios | todos |
+| HU-04 | `POST /procesos` | Crear proceso (BORRADOR, con el pool de la empresa) | ADMINISTRADOR, EDITOR |
+| HU-05 | `PUT /procesos/{id}` | Editar nombre, descripción, categoría y estado | ADMINISTRADOR, EDITOR |
+| HU-06 | `DELETE /procesos/{id}` | Eliminación lógica | ADMINISTRADOR |
+
 ## Documentación de la API
 
 Swagger UI en `http://localhost:8090/swagger-ui/index.html` (botón *Authorize* con el token) y contrato OpenAPI en `http://localhost:8090/v3/api-docs`.
