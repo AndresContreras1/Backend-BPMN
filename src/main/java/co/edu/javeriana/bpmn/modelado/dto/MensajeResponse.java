@@ -6,7 +6,6 @@ import co.edu.javeriana.bpmn.modelado.entity.AccionSinCaso;
 import co.edu.javeriana.bpmn.modelado.entity.CampoMensaje;
 import co.edu.javeriana.bpmn.modelado.entity.DireccionMensaje;
 import co.edu.javeriana.bpmn.modelado.entity.Mensaje;
-import co.edu.javeriana.bpmn.modelado.entity.NodoFlujo;
 import co.edu.javeriana.bpmn.modelado.entity.PoliticaFallo;
 import co.edu.javeriana.bpmn.modelado.entity.TipoDato;
 import co.edu.javeriana.bpmn.modelado.entity.TipoDestinoExterno;
@@ -29,13 +28,14 @@ public record MensajeResponse(Long id, NodoResponse nodo, DireccionMensaje direc
         }
     }
 
-    public static MensajeResponse de(Mensaje m, List<CampoMensaje> campos, Long nodoDestinoId) {
+    public static MensajeResponse de(Mensaje m, List<CampoMensaje> campos, List<Long> actividadesQueUsanIds,
+                                     Long nodoDestinoId) {
         return new MensajeResponse(m.getId(), NodoResponse.de(m.getNodo()), m.getDireccion(), m.getNombre(),
                 m.getNodo().getPool().getId(), m.getPoolDestino() == null ? null : m.getPoolDestino().getId(),
                 nodoDestinoId, m.getTipoDestino(), m.getMomento(), m.getPoliticaFallo(),
                 m.getActividadManejoError() == null ? null : m.getActividadManejoError().getId(),
                 m.isOrigenExterno(), m.getClaveCorrelacion(), m.getAccionSinCaso(),
                 campos.stream().map(Campo::de).toList(),
-                m.getActividadesQueUsan().stream().filter(NodoFlujo::isActivo).map(NodoFlujo::getId).toList());
+                actividadesQueUsanIds);
     }
 }

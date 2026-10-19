@@ -18,6 +18,7 @@ import co.edu.javeriana.bpmn.modelado.entity.Mensaje;
 import co.edu.javeriana.bpmn.modelado.repository.ArcoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
+import co.edu.javeriana.bpmn.modelado.repository.UsoDeDatosMensajeRepository;
 import co.edu.javeriana.bpmn.modelado.service.NodoFlujoService;
 import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class NodoFlujoServiceImpl implements NodoFlujoService {
     private final NodoFlujoRepository nodoRepository;
     private final ArcoRepository arcoRepository;
     private final MensajeRepository mensajeRepository;
+    private final UsoDeDatosMensajeRepository usoDeDatosRepository;
     private final ValidadorDeProcesoService validador;
 
     @Override
@@ -64,7 +66,7 @@ public class NodoFlujoServiceImpl implements NodoFlujoService {
 
         conectados.forEach(arco -> arco.setActivo(false));   // los arcos que entraban y salían se van con él
         mensajeRepository.findByNodoIdAndActivoTrue(nodo.getId()).ifPresent(m -> m.setActivo(false));
-        mensajeRepository.queUsanActividad(nodo.getId()).forEach(m -> m.getActividadesQueUsan().remove(nodo));
+        usoDeDatosRepository.findByActividadIdAndActivoTrue(nodo.getId()).forEach(uso -> uso.setActivo(false));
         nodo.setActivo(false);                                 // la baja es lógica
         return avisos;
     }

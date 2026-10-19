@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -31,7 +30,4 @@ public interface MensajeRepository extends JpaRepository<Mensaje, Long> {
 
     List<Mensaje> findByActividadManejoErrorIdAndActivoTrue(Long actividadId);
 
-    /** Message Catch que declaran que una actividad usa sus datos (HU-27). */
-    @Query("select m from Mensaje m join m.actividadesQueUsan a where a.id = :actividadId and m.activo = true")
-    List<Mensaje> queUsanActividad(@Param("actividadId") Long actividadId);
 }

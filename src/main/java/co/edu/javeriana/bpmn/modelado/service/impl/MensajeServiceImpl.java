@@ -37,10 +37,12 @@ import co.edu.javeriana.bpmn.modelado.entity.PoliticaFallo;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoActividad;
 import co.edu.javeriana.bpmn.modelado.entity.TipoNodo;
+import co.edu.javeriana.bpmn.modelado.entity.UsoDeDatosMensaje;
 import co.edu.javeriana.bpmn.modelado.entity.VarianteEvento;
 import co.edu.javeriana.bpmn.modelado.repository.CampoMensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
+import co.edu.javeriana.bpmn.modelado.repository.UsoDeDatosMensajeRepository;
 import co.edu.javeriana.bpmn.modelado.service.LaneService;
 import co.edu.javeriana.bpmn.modelado.service.MensajeService;
 import co.edu.javeriana.bpmn.modelado.service.NodoFlujoService;
@@ -58,6 +60,7 @@ public class MensajeServiceImpl implements MensajeService {
     private final MensajeRepository mensajeRepository;
     private final CampoMensajeRepository campoRepository;
     private final NodoFlujoRepository nodoRepository;
+    private final UsoDeDatosMensajeRepository usoDeDatosRepository;
     private final NodoFlujoService nodoFlujoService;
     private final ProcesoService procesoService;
     private final PoolService poolService;
@@ -166,13 +169,14 @@ public class MensajeServiceImpl implements MensajeService {
         NodoFlujo evento = nuevoNodo(proceso, pool, lane(request.laneId(), pool, empresaId), TipoNodo.MESSAGE_CATCH,
                 request.nombre().trim(), request.variante(), request.posX(), request.posY(), empresaId);
 
+        List<NodoFlujo> actividades = actividadesQueUsan(request.actividadesQueUsanIds(), proceso, empresaId);
         Mensaje mensaje = Mensaje.builder()
                 .proceso(proceso).nodo(evento).direccion(DireccionMensaje.RECEPCION)
                 .nombre(request.nombre().trim()).origenExterno(request.origenExterno())
                 .claveCorrelacion(textoONulo(request.claveCorrelacion()))
-                .actividadesQueUsan(actividadesQueUsan(request.actividadesQueUsanIds(), proceso, empresaId))
                 .build();
         mensaje = guardar(mensaje, request.campos(), empresaId);
+        guardarUsos(mensaje, actividades, empresaId);
 
         historialService.registrar(proceso, TipoCambio.CREACION, ElementoHistorial.MENSAJE, mensaje.getId(),
                 "Message Catch de " + request.variante().name().toLowerCase() + " '" + mensaje.getNombre()
@@ -232,7 +236,9 @@ public class MensajeServiceImpl implements MensajeService {
                 mensaje.setOrigenExterno(request.origenExterno());
             }
             if (request.actividadesQueUsanIds() != null) {
-                mensaje.setActividadesQueUsan(actividadesQueUsan(request.actividadesQueUsanIds(), mensaje.getProceso(), empresaId));
+                List<NodoFlujo> actividades = actividadesQueUsan(request.actividadesQueUsanIds(), mensaje.getProceso(), empresaId);
+                usoDeDatosRepository.findByMensajeIdAndActivoTrue(id).forEach(uso -> uso.setActivo(false));
+                guardarUsos(mensaje, actividades, empresaId);
                 cambios.add("actividades que usan los datos actualizadas");
             }
         }
@@ -452,6 +458,14 @@ public class MensajeServiceImpl implements MensajeService {
         }
     }
 
+    private void guardarUsos(Mensaje mensaje, List<NodoFlujo> actividades, Long empresaId) {
+        for (NodoFlujo actividad : actividades) {
+            UsoDeDatosMensaje uso = UsoDeDatosMensaje.builder().mensaje(mensaje).actividad(actividad).build();
+            uso.setEmpresaId(empresaId);
+            usoDeDatosRepository.save(uso);
+        }
+    }
+
     private MensajeGuardadoResponse guardado(Mensaje mensaje) {
         List<Mensaje> delProceso = mensajeRepository.listarActivosDelProceso(mensaje.getProceso().getId());
         // Solo las advertencias de mensajería; la conectividad del evento se ve en el diagrama
@@ -472,7 +486,10 @@ public class MensajeServiceImpl implements MensajeService {
                     .map(m -> m.getNodo().getId())
                     .findFirst().orElse(null);
         }
-        return MensajeResponse.de(mensaje, campoRepository.findByMensajeIdAndActivoTrueOrderByOrdenAsc(mensaje.getId()), nodoDestino);
+        List<Long> actividades = usoDeDatosRepository.findByMensajeIdAndActivoTrue(mensaje.getId()).stream()
+                .map(uso -> uso.getActividad().getId()).toList();
+        return MensajeResponse.de(mensaje, campoRepository.findByMensajeIdAndActivoTrueOrderByOrdenAsc(mensaje.getId()),
+                actividades, nodoDestino);
     }
 
     private static String textoONulo(String texto) {
