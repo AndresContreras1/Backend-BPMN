@@ -25,6 +25,9 @@
         <archunit.version>1.5.1</archunit.version>
         <jjwt.version>0.12.7</jjwt.version>
         <bucket4j.version>8.19.0</bucket4j.version>
+        <!-- Etiquetas de JUnit que corre failsafe: por defecto todo menos las pruebas de sistema (ver perfil e2e) -->
+        <pruebas.incluidas></pruebas.incluidas>
+        <pruebas.excluidas>e2e</pruebas.excluidas>
 
         <!-- SonarCloud: organizacion y llave se pueden sobrescribir con -Dsonar.organization y -Dsonar.projectKey -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -142,6 +145,12 @@
             <version>${archunit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Pruebas de sistema (E2E): Selenium maneja Chrome; la version la fija Spring Boot -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -184,10 +193,14 @@
                 </configuration>
             </plugin>
 
-            <!-- Pruebas *IT (integracion) en la fase verify -->
+            <!-- Pruebas *IT (integracion) en la fase verify; las de sistema (@Tag e2e) solo con -Pe2e -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <groups>${pruebas.incluidas}</groups>
+                    <excludedGroups>${pruebas.excluidas}</excludedGroups>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -268,4 +281,30 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Pruebas de sistema con Selenium: ./mvnw verify -Pe2e con el frontend corriendo en http://localhost:4200
+            (o -De2e.url=...). Solo corren las clases con @Tag("e2e"); las unitarias y la cobertura se saltan.
+        -->
+        <profile>
+            <id>e2e</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip>
+                <pruebas.incluidas>e2e</pruebas.incluidas>
+                <pruebas.excluidas>ninguna</pruebas.excluidas>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
