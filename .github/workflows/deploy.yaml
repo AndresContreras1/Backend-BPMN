@@ -1,8 +1,11 @@
 name: Build and Deploy with MicroK8s
 
-# Despliegue del curso. Se ejecuta a mano (Actions → Run workflow) hasta registrar el runner
-# self-hosted con la etiqueta "main"; en la entrega 3 se cambia el disparador a push en main.
+# Despliegue del curso: cada push a main publica la imagen en GHCR y la despliega en el microk8s del
+# servidor con el runner self-hosted "main". Mientras ese runner no esté registrado, el despliegue se salta:
+# se activa creando la variable del repositorio RUNNER_REGISTRADO=true (Settings → Variables → Actions).
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -44,6 +47,7 @@ jobs:
     name: Deploy on MicroK8s On-Premise
     runs-on: main
     needs: build-and-publish
+    if: vars.RUNNER_REGISTRADO == 'true'
 
     steps:
     - name: Checkout repo
