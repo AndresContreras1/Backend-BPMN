@@ -234,6 +234,41 @@ Ejecuta las pruebas unitarias (`*Test`) y de integración (`*IT`) y genera el re
 | `RateLimitIT` | El login y el registro responden 429 con `Retry-After` al agotar el cubo, y el resto de la API no se ve afectada |
 | `ArquitecturaTest` (ArchUnit) | Capas, nombres, multiempresa, inyección por constructor, sin `System.out`, seguridad sin repositorios salvo el `UserDetailsService` y servicios sin `findById`/`findAll` sin empresa |
 
+### Pruebas de sistema (E2E con Selenium)
+
+Simulan a un usuario en Chrome, del frontend hasta la base de datos. Viven en `src/test/java/.../e2e` con el patrón Page Object (`e2e/paginas`): cada pantalla es una clase con sus selectores, así las pruebas se leen como el caso de uso. Llevan `@Tag("e2e")`, así que `./mvnw verify` no las corre; necesitan el frontend arriba:
+
+```bash
+# 1. En Frontend-BPMN: ng serve con el proxy hacia el backend en 8090
+npm start
+# 2. En este repositorio (el backend no debe estar corriendo: la prueba lo levanta en 8090)
+./mvnw verify -Pe2e
+```
+
+Cada prueba arranca el backend con los perfiles `test` y `demo` (base en memoria con los datos demo) y reinicia el contexto antes de cada caso (`@DirtiesContext`), así ninguna depende de otra. Chrome corre sin ventana; `-De2e.headless=false` lo muestra y `-De2e.url=...` cambia la URL del frontend. Al terminar cada caso queda una captura en `target/capturas/`.
+
+| Clase | Nivel | Caso |
+|---|---|---|
+| `PaginaPublicaSistemaIT` | Sencillo | La página pública dibuja el ejemplo y lleva al login; credenciales incorrectas dan el mensaje genérico; una ruta interna sin sesión lleva al login con `returnUrl` |
+| `ProcesosSistemaIT` | Medio | Eliminar un proceso deja la lista con uno menos y aparece en "Ver eliminados"; el filtro por estado deja solo los publicados |
+| `RegistroYPrimerProcesoSistemaIT` | Caso de uso completo | Registrar una empresa (HU-01), entrar como su administrador, crear el primer proceso (HU-04) y encontrarlo en el inicio y en la lista, también al volver a entrar |
+| `CompartirEntreEmpresasSistemaIT` | Caso de uso completo | Facimus comparte un proceso por NIT (HU-23); Comercial Andina lo ve en "Compartidos conmigo" en solo lectura y no entre sus propios procesos |
+| `RolesDeAccesoSistemaIT` | Caso de uso completo | El administrador invita a un lector (HU-02); el lector consulta los procesos pero no puede crearlos, ni escribiendo la URL |
+
+El workflow manual `.github/workflows/e2e.yml` hace lo mismo en GitHub Actions contra la rama del frontend que se elija.
+
+### Prueba de carga (k6)
+
+`test.js` (en la raíz) simula 20 usuarios que, después de iniciar sesión una vez, abren en bucle el resumen del inicio, la lista de procesos y un diagrama, con una pausa de 1 s entre iteraciones. Los umbrales hacen que la prueba falle sola: menos de 1 % de errores y el 95 % de las respuestas por debajo de 500 ms.
+
+```bash
+k6 run test.js
+# o sin instalar k6:
+docker run --rm -i -e BASE_URL=http://host.docker.internal:8090 grafana/k6 run - < test.js
+```
+
+Con la API en el perfil `default` en un portátil: 2 557 peticiones en 55 s, 0 % de errores, mediana de 4 ms y p95 de 7,5 ms.
+
 ## Postman
 
 La colección `postman/BPMN-API.postman_collection.json` (con el entorno `postman/local.postman_environment.json`) recorre las 28 historias en orden: registra una empresa, inicia sesión, crea usuarios, roles, un proceso con su diagrama, una notificación externa con correlación, lo publica, lo comparte y lo elimina. Cada petición tiene su prueba de código HTTP y las variables (`token`, `procesoId`, `laneId`…) se guardan solas.
@@ -265,6 +300,8 @@ Lo que el usuario elimina es lógico (`activo = false`) para conservar la trazab
 ## Integración continua
 
 El workflow `.github/workflows/ci.yml` corre en cada pull request y en cada push a `main`: compila, ejecuta `./mvnw verify`, publica el reporte de JaCoCo y construye la imagen Docker. El análisis de SonarCloud se activa cuando el repositorio tiene el secreto `SONAR_TOKEN`.
+
+`.github/workflows/e2e.yml` corre las pruebas de sistema contra el frontend (ver **Pruebas de sistema**) y se lanza a mano.
 
 `.github/workflows/deploy.yaml` es el despliegue del curso (imagen a GHCR y `microk8s kubectl apply -f k8s/deployment.yaml` en el runner self-hosted). Se ejecuta a mano hasta registrar el runner en la entrega 3.
 
