@@ -303,7 +303,28 @@ El workflow `.github/workflows/ci.yml` corre en cada pull request y en cada push
 
 `.github/workflows/e2e.yml` corre las pruebas de sistema contra el frontend (ver **Pruebas de sistema**) y se lanza a mano.
 
-`.github/workflows/deploy.yaml` es el despliegue del curso (imagen a GHCR y `microk8s kubectl apply -f k8s/deployment.yaml` en el runner self-hosted). Se ejecuta a mano hasta registrar el runner en la entrega 3.
+`.github/workflows/deploy.yaml` es el despliegue del curso: en cada push a `main` construye la imagen y la publica en `ghcr.io/<dueño>/backend-bpmn:latest`, y en el runner self-hosted `main` aplica `k8s/deployment.yaml` y reinicia el Deployment. El job de despliegue se salta hasta que exista la variable del repositorio `RUNNER_REGISTRADO=true`, así `main` no queda en rojo mientras el runner no esté registrado.
+
+## Despliegue en Kubernetes
+
+`k8s/deployment.yaml` sigue la guía del curso:
+
+| Objeto | Qué hace |
+|---|---|
+| `Namespace` `bpmn` | Agrupa el backend y el frontend |
+| `Deployment` `backend-bpmn` | 2 réplicas de la imagen de GHCR (`imagePullSecrets: ghcr-secret`), perfil `prod` y credenciales desde el Secret `backend-bpmn-secretos` |
+| `Service` `backend` | Puerto 8090 dentro del clúster; el nombre coincide con el `proxy_pass` del nginx del frontend |
+| `Ingress` | `ingressClassName: public`, host del grupo (`bpmn.inphotech.co`, cambiarlo por el asignado): `/api`, `/swagger-ui` y `/v3/api-docs` van al backend; `/` lo atiende el Ingress del frontend |
+
+Antes del primer despliegue, en el servidor (los valores nunca van al repositorio):
+
+```bash
+microk8s kubectl create namespace bpmn
+microk8s kubectl create secret docker-registry ghcr-secret -n bpmn --docker-server=ghcr.io --docker-username=<usuario> --docker-password=<token> --docker-email=<correo>
+microk8s kubectl create secret generic backend-bpmn-secretos -n bpmn --from-literal=DB_HOST=<host> --from-literal=DB_NAME=procesos --from-literal=DB_USER=<usuario> --from-literal=DB_PASSWORD=<clave> --from-literal=JWT_SECRET=<clave-base64>
+```
+
+Con dos réplicas, `JWT_SECRET` es obligatorio (si cada pod generara su clave, un token de uno no valdría en el otro) y el límite de intentos del login se cuenta por pod.
 
 ## Documentación técnica
 
