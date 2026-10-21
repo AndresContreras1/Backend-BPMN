@@ -100,6 +100,8 @@ Cada respuesta de error lleva `codigo` (enum `CodigoError`) y `timestamp`, armad
 | Migraciones | Testcontainers (PostgreSQL 16) | Flyway aplica el esquema versionado y Hibernate lo valida |
 | Límite de intentos | `RateLimitIT` | 429 con `Retry-After` en login y registro |
 | Manual / evidencia | Postman + Newman | Colección `postman/` con pruebas en cada petición |
+| Sistema (E2E) | Selenium + Chrome, Page Objects, `-Pe2e` | Tres casos de uso completos (registro y primer proceso, compartir entre empresas, roles de acceso) más casos sencillos y medios sobre el frontend real |
+| Carga | k6 (`test.js`) | 20 usuarios virtuales con umbrales de errores y de p95 |
 
 Cobertura medida con JaCoCo: mínimo 50 % de línea en el proyecto y 70 % de línea / 60 % de rama en los servicios.
 
@@ -108,4 +110,6 @@ Cobertura medida con JaCoCo: mínimo 50 % de línea en el proyecto y 70 % de lí
 - Seguridad: ya está activa (JWT, roles, aislamiento).
 - Despliegue: `.github/workflows/deploy.yaml` (imagen a GHCR + microk8s con runner self-hosted, se ejecuta a mano hasta registrar el runner) y `k8s/deployment.yaml`.
 - Migraciones: Flyway en el perfil `prod` (`db/migration`), con `ddl-auto=validate`.
-- Pendiente para la entrega 3: pruebas E2E con Selenium sobre el frontend, pruebas de carga con k6, HTTPS y cabeceras de seguridad (HSTS, CSP) en el despliegue.
+- Pruebas de sistema: Selenium en `src/test/java/.../e2e` (`./mvnw verify -Pe2e` con el frontend arriba) y el workflow manual `e2e.yml`.
+- Pruebas de carga: `test.js` con k6.
+- Pendiente para el despliegue final: HTTPS y cabeceras de seguridad (HSTS, CSP) en el Ingress del servidor del curso.
