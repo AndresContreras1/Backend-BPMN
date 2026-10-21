@@ -1,7 +1,14 @@
-# Despliegue del backend en Kubernetes (microk8s). Las credenciales viven en el Secret
-# "backend-bpmn-secretos", que se crea en el servidor y nunca se sube al repositorio:
-#   microk8s kubectl create secret generic backend-bpmn-secretos -n bpmn \
-#     --from-literal=DB_USER=... --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
+# Despliegue del backend en Kubernetes (microk8s del curso): Deployment + Service + Ingress.
+#
+# Antes del primer despliegue se crean en el servidor (nunca en el repositorio):
+#   1. El namespace:       microk8s kubectl create namespace bpmn
+#   2. El acceso a GHCR:   microk8s kubectl create secret docker-registry ghcr-secret -n bpmn \
+#                            --docker-server=ghcr.io --docker-username=<usuario> --docker-password=<token> --docker-email=<correo>
+#   3. Las credenciales:   microk8s kubectl create secret generic backend-bpmn-secretos -n bpmn \
+#                            --from-literal=DB_HOST=... --from-literal=DB_NAME=... --from-literal=DB_USER=... \
+#                            --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
+# JWT_SECRET es obligatorio con dos réplicas: si cada pod generara su propia clave, un token firmado
+# por uno no valdría en el otro.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -15,7 +22,7 @@ metadata:
   labels:
     app: backend-bpmn
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: backend-bpmn
@@ -24,6 +31,8 @@ spec:
       labels:
         app: backend-bpmn
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: backend-bpmn
           image: ghcr.io/andrescontreras1/backend-bpmn:latest
@@ -33,12 +42,9 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: prod
-            - name: DB_HOST
-              value: postgres
-            - name: DB_NAME
-              value: procesos
+            # El navegador entra por el mismo dominio del Ingress (frontend y API), así que no hay CORS
             - name: CORS_ALLOWED_ORIGINS
-              value: http://localhost:4200
+              value: https://bpmn.inphotech.co
           envFrom:
             - secretRef:
                 name: backend-bpmn-secretos
@@ -49,14 +55,51 @@ spec:
             limits:
               memory: 768Mi
 ---
+# El Service se llama "backend": es el nombre que usa el nginx del frontend (proxy_pass http://backend:8090)
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-bpmn
+  name: backend
   namespace: bpmn
 spec:
   selector:
     app: backend-bpmn
   ports:
-    - port: 8090
+    - protocol: TCP
+      port: 8090
       targetPort: 8090
+---
+# La API y Swagger por el dominio del grupo; la raíz (/) la atiende el Ingress del frontend.
+# Cambiar el host por el subdominio asignado al grupo (<grupo>.inphotech.co).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-bpmn
+  namespace: bpmn
+spec:
+  ingressClassName: public
+  rules:
+    - host: bpmn.inphotech.co
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8090
+          - path: /swagger-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8090
+          - path: /v3/api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8090

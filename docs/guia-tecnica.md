@@ -108,7 +108,7 @@ Cobertura medida con JaCoCo: mínimo 50 % de línea en el proyecto y 70 % de lí
 ## 6. Entrega 3 (preparado)
 
 - Seguridad: ya está activa (JWT, roles, aislamiento).
-- Despliegue: `.github/workflows/deploy.yaml` (imagen a GHCR + microk8s con runner self-hosted, se ejecuta a mano hasta registrar el runner) y `k8s/deployment.yaml`.
+- Despliegue: `.github/workflows/deploy.yaml` publica la imagen en GHCR en cada push a `main` y despliega en microk8s con el runner self-hosted cuando la variable `RUNNER_REGISTRADO` vale `true`; `k8s/deployment.yaml` tiene el Deployment (2 réplicas, `ghcr-secret`), el Service `backend` y el Ingress del dominio del grupo.
 - Migraciones: Flyway en el perfil `prod` (`db/migration`), con `ddl-auto=validate`.
 - Pruebas de sistema: Selenium en `src/test/java/.../e2e` (`./mvnw verify -Pe2e` con el frontend arriba) y el workflow manual `e2e.yml`.
 - Pruebas de carga: `test.js` con k6.
