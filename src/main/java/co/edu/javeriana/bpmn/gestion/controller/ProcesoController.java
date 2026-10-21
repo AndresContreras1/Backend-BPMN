@@ -111,7 +111,7 @@ public class ProcesoController {
     @Operation(summary = "HU-07 · Historial de cambios del proceso", description = "Usuario, fecha y detalle de cada cambio")
     public PageResponse<HistorialResponse> historial(
             @PathVariable Long id,
-            @ParameterObject @PageableDefault(size = 20, sort = "fecha", direction = Sort.Direction.DESC) Pageable pageable,
+            @ParameterObject @PageableDefault(size = 20, sort = {"fecha", "id"}, direction = Sort.Direction.DESC) Pageable pageable,
             @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
         return procesoService.historial(id, principal.empresaId(), pageable);
     }

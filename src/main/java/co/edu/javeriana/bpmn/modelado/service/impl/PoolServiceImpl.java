@@ -25,6 +25,7 @@ import co.edu.javeriana.bpmn.modelado.dto.PoolResponse;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.LaneRepository;
+import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
 import co.edu.javeriana.bpmn.modelado.service.PoolService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class PoolServiceImpl implements PoolService {
 
     private final PoolRepository poolRepository;
     private final LaneRepository laneRepository;
+    private final NodoFlujoRepository nodoRepository;
     private final ProcesoService procesoService;
     private final RolProcesoService rolProcesoService;
     private final HistorialService historialService;
@@ -178,9 +180,10 @@ public class PoolServiceImpl implements PoolService {
                 .orElseThrow(() -> new NotFoundException("No existe el pool " + id));
     }
 
-    /** Lanes del pool (en la rama de nodos se suman actividades, gateways y eventos). */
+    /** Lanes, actividades, gateways o eventos dentro del pool. */
     private boolean tieneElementos(Pool pool) {
-        return laneRepository.countByPoolIdAndActivoTrue(pool.getId()) > 0;
+        return laneRepository.countByPoolIdAndActivoTrue(pool.getId()) > 0
+                || nodoRepository.countByPoolIdAndActivoTrue(pool.getId()) > 0;
     }
 
     private static boolean resolverCajaNegra(PoolRequest request) {

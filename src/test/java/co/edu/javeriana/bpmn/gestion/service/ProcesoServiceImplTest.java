@@ -41,6 +41,7 @@ import co.edu.javeriana.bpmn.gestion.service.impl.ProcesoServiceImpl;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
+import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
 
 @ExtendWith(MockitoExtension.class)
 class ProcesoServiceImplTest {
@@ -58,6 +59,9 @@ class ProcesoServiceImplTest {
 
     @Mock
     private HistorialService historialService;
+
+    @Mock
+    private ValidadorDeProcesoService validador;
 
     @InjectMocks
     private ProcesoServiceImpl procesoService;
@@ -128,6 +132,31 @@ class ProcesoServiceImplTest {
 
         verify(historialService).registrar(eq(proceso), eq(TipoCambio.CAMBIO_ESTADO), eq(ElementoHistorial.PROCESO),
                 eq(5L), contains("estado: 'BORRADOR' → 'PUBLICADO'"));
+        verify(validador).exigirCoherenciaParaPublicar(proceso);
+    }
+
+    @Test
+    void ProcesoService_publicar_DiagramaIncoherenteNoSePublicaNiSeRegistra() {
+        Proceso proceso = vacaciones();
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(proceso));
+        org.mockito.Mockito.doThrow(new ReglaDeNegocioException("No se puede publicar", List.of("Sin inicio")))
+                .when(validador).exigirCoherenciaParaPublicar(proceso);
+
+        assertThatThrownBy(() -> procesoService.actualizar(5L, new ProcesoActualizacionRequest("Vacaciones", "Desc", "TH",
+                EstadoProceso.PUBLICADO, null), EMPRESA)).isInstanceOf(ReglaDeNegocioException.class);
+        verify(historialService, never()).registrar(any(), any(), any(), any(), anyString());
+    }
+
+    @Test
+    void ProcesoService_volverABorrador_NoValidaElDiagrama() {
+        Proceso proceso = vacaciones();
+        proceso.setEstado(EstadoProceso.PUBLICADO);
+        when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(proceso));
+
+        procesoService.actualizar(5L, new ProcesoActualizacionRequest("Vacaciones", "Desc", "TH",
+                EstadoProceso.BORRADOR, null), EMPRESA);
+
+        verify(validador, never()).exigirCoherenciaParaPublicar(any());
     }
 
     @Test

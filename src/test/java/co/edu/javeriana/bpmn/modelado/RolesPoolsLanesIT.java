@@ -12,30 +12,13 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import co.edu.javeriana.bpmn.soporte.ApiDePrueba;
+import co.edu.javeriana.bpmn.soporte.IntegracionBase;
 
 /** HU-17 a HU-22 y HU-24 de punta a punta. */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
-class RolesPoolsLanesIT {
+class RolesPoolsLanesIT extends IntegracionBase {
 
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    private ApiDePrueba api;
     private String admin;
     private String editor;
     private String lector;
@@ -45,7 +28,6 @@ class RolesPoolsLanesIT {
 
     @BeforeEach
     void datos() throws Exception {
-        api = new ApiDePrueba(mockMvc, objectMapper);
         admin = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
         editor = api.crearUsuarioYEntrar(admin, "editor@a.com", "EDITOR");
         lector = api.crearUsuarioYEntrar(admin, "lector@a.com", "LECTOR");

@@ -17,37 +17,21 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import co.edu.javeriana.bpmn.gestion.entity.Usuario;
 import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
 import co.edu.javeriana.bpmn.security.JwtService;
-import co.edu.javeriana.bpmn.soporte.ApiDePrueba;
+import co.edu.javeriana.bpmn.soporte.IntegracionBase;
 import io.jsonwebtoken.Jwts;
 
 /**
  * HU-01, HU-02 y HU-03 de punta a punta: la API se usa como la usaría el frontend,
  * con tokens reales, y se intenta romper la seguridad por todos los lados.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-@Transactional
-class AutenticacionYUsuariosIT {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class AutenticacionYUsuariosIT extends IntegracionBase {
 
     @Autowired
     private JwtService jwtService;
@@ -55,12 +39,10 @@ class AutenticacionYUsuariosIT {
     @Autowired
     private UsuarioRepository usuarioRepository;
 
-    private ApiDePrueba api;
     private String tokenAdminA;
 
     @BeforeEach
     void datos() throws Exception {
-        api = new ApiDePrueba(mockMvc, objectMapper);
         tokenAdminA = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
     }
 
