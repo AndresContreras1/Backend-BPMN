@@ -25,18 +25,18 @@ import lombok.Setter;
 public abstract class EntidadAuditada {
 
     @CreatedDate
-    @Column(name = "creado_en", updatable = false)
+    @Column(name = "creado_en", updatable = false, nullable = false)
     private Instant creadoEn;
 
     @LastModifiedDate
-    @Column(name = "modificado_en")
+    @Column(name = "modificado_en", nullable = false)
     private Instant modificadoEn;
 
     @CreatedBy
-    @Column(name = "creado_por", length = 120, updatable = false)
+    @Column(name = "creado_por", length = 120, updatable = false, nullable = false)
     private String creadoPor;
 
     @LastModifiedBy
-    @Column(name = "modificado_por", length = 120)
+    @Column(name = "modificado_por", length = 120, nullable = false)
     private String modificadoPor;
 }

@@ -13,6 +13,7 @@ import co.edu.javeriana.bpmn.common.dto.PageResponse;
 import co.edu.javeriana.bpmn.common.exception.NotFoundException;
 import co.edu.javeriana.bpmn.common.exception.ReglaDeNegocioException;
 import co.edu.javeriana.bpmn.common.util.Paginacion;
+import co.edu.javeriana.bpmn.gestion.dto.CambioEstadoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.CambioRolRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioResponse;
@@ -34,10 +35,10 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<UsuarioResponse> listar(Long empresaId, String nombre, Pageable pageable) {
-        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        Pageable orden = Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
         String filtro = nombre == null ? "" : nombre.trim();
         return PageResponse.de(
-                usuarioRepository.findByEmpresaIdAndNombreContainingIgnoreCase(empresaId, filtro, pageable),
+                usuarioRepository.findByEmpresaIdAndNombreContainingIgnoreCase(empresaId, filtro, orden),
                 UsuarioResponse::de);
     }
 
@@ -83,23 +84,16 @@ public class UsuarioServiceImpl implements UsuarioService {
     @Override
     @Transactional
     @PreAuthorize("hasAuthority('ADMINISTRADOR')")
-    public UsuarioResponse desactivar(Long id, Long empresaId, Long actorId) {
+    public UsuarioResponse cambiarEstado(Long id, CambioEstadoRequest request, Long empresaId, Long actorId) {
         Usuario usuario = obtenerDeEmpresa(id, empresaId);
-        if (usuario.getId().equals(actorId)) {
-            throw new ReglaDeNegocioException("No puede desactivar su propia cuenta");
+        if (!request.activo()) {
+            if (usuario.getId().equals(actorId)) {
+                throw new ReglaDeNegocioException("No puede desactivar su propia cuenta");
+            }
+            exigirOtroAdministradorActivo(usuario);
         }
-        exigirOtroAdministradorActivo(usuario);
         // Desactivar no borra: el historial y los procesos del usuario se conservan (son de la empresa)
-        usuario.setActivo(false);
-        return UsuarioResponse.de(usuario);
-    }
-
-    @Override
-    @Transactional
-    @PreAuthorize("hasAuthority('ADMINISTRADOR')")
-    public UsuarioResponse activar(Long id, Long empresaId) {
-        Usuario usuario = obtenerDeEmpresa(id, empresaId);
-        usuario.setActivo(true);
+        usuario.setActivo(request.activo());
         return UsuarioResponse.de(usuario);
     }
 

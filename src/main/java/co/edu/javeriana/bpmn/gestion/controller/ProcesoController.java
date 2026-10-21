@@ -80,16 +80,16 @@ public class ProcesoController {
         return procesoService.compartidosConmigo(principal.empresaId(), pageable);
     }
 
-    // GET http://localhost:8090/api/v1/procesos/{id}/compartir
-    @GetMapping("/{id}/compartir")
+    // GET http://localhost:8090/api/v1/procesos/{id}/comparticion
+    @GetMapping("/{id}/comparticion")
     @Operation(summary = "HU-23 · Estado de compartición del proceso")
     public ComparticionResponse comparticion(@PathVariable Long id,
                                              @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
         return procesoService.comparticion(id, principal.empresaId());
     }
 
-    // PUT http://localhost:8090/api/v1/procesos/{id}/compartir
-    @PutMapping("/{id}/compartir")
+    // PUT http://localhost:8090/api/v1/procesos/{id}/comparticion
+    @PutMapping("/{id}/comparticion")
     @Operation(summary = "HU-23 · Compartir proceso con otras empresas",
             description = "Por NIT y en solo lectura. Solo el administrador de la empresa propietaria")
     public ComparticionResponse compartir(@PathVariable Long id, @Valid @RequestBody CompartirRequest request,

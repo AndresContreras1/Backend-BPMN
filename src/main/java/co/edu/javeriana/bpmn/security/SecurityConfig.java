@@ -1,5 +1,6 @@
 package co.edu.javeriana.bpmn.security;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -26,12 +27,11 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
-
 /**
  * API stateless con JWT en el header Authorization. CSRF se desactiva porque el token no viaja
  * en una cookie: el navegador no lo agrega solo a una petición de otro sitio.
- * Los permisos por rol se declaran en los servicios con @PreAuthorize.
+ * Los permisos por rol se declaran en los servicios con @PreAuthorize. El login y el registro tienen
+ * límite de intentos por IP (RateLimitFilter).
  */
 @Configuration
 @EnableWebSecurity
@@ -39,18 +39,29 @@ import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
 public class SecurityConfig {
 
     private final JwtService jwtService;
-    private final UsuarioRepository usuarioRepository;
+    private final CustomUserDetailService userDetailService;
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
     private final ApiAccessDeniedHandler apiAccessDeniedHandler;
+    private final EscritorDeProblemDetail escritor;
     private final List<String> origenesPermitidos;
+    private final RateLimitFilter.Limite limiteLogin;
+    private final RateLimitFilter.Limite limiteRegistro;
 
-    public SecurityConfig(JwtService jwtService, UsuarioRepository usuarioRepository,
+    public SecurityConfig(JwtService jwtService, CustomUserDetailService userDetailService,
                           JwtAuthEntryPoint jwtAuthEntryPoint, ApiAccessDeniedHandler apiAccessDeniedHandler,
-                          @Value("${app.cors.allowed-origins}") String origenesPermitidos) {
+                          EscritorDeProblemDetail escritor,
+                          @Value("${app.cors.allowed-origins}") String origenesPermitidos,
+                          @Value("${app.rate-limit.login.capacidad}") long capacidadLogin,
+                          @Value("${app.rate-limit.login.minutos}") long minutosLogin,
+                          @Value("${app.rate-limit.registro.capacidad}") long capacidadRegistro,
+                          @Value("${app.rate-limit.registro.minutos}") long minutosRegistro) {
         this.jwtService = jwtService;
-        this.usuarioRepository = usuarioRepository;
+        this.userDetailService = userDetailService;
         this.jwtAuthEntryPoint = jwtAuthEntryPoint;
         this.apiAccessDeniedHandler = apiAccessDeniedHandler;
+        this.escritor = escritor;
+        this.limiteLogin = new RateLimitFilter.Limite(capacidadLogin, Duration.ofMinutes(minutosLogin));
+        this.limiteRegistro = new RateLimitFilter.Limite(capacidadRegistro, Duration.ofMinutes(minutosRegistro));
         this.origenesPermitidos = Arrays.stream(origenesPermitidos.split(","))
                 .map(String::trim).filter(o -> !o.isEmpty()).toList();
     }
@@ -83,7 +94,10 @@ public class SecurityConfig {
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint(jwtAuthEntryPoint)
                 .accessDeniedHandler(apiAccessDeniedHandler))
-            .addFilterBefore(new JwtAuthenticationFilter(jwtService, usuarioRepository),
+            // Primero el límite de intentos (antes de autenticar) y después el JWT
+            .addFilterBefore(new RateLimitFilter(escritor, limiteLogin, limiteRegistro),
+                    UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(new JwtAuthenticationFilter(jwtService, userDetailService),
                     UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
@@ -102,7 +116,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(origenesPermitidos);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT));
         config.setExposedHeaders(List.of(HttpHeaders.LOCATION));
         config.setMaxAge(3600L);

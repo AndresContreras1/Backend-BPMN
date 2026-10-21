@@ -54,7 +54,7 @@ public class Proceso extends EntidadDeEmpresa {
     @Column(length = 120, nullable = false)
     private String nombre;
 
-    @Column(length = 500)
+    @Column(length = 500, nullable = true)
     private String descripcion;
 
     @Column(length = 60, nullable = false)

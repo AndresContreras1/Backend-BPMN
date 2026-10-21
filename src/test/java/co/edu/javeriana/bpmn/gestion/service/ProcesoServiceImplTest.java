@@ -219,9 +219,10 @@ class ProcesoServiceImplTest {
     }
 
     @Test
-    void ProcesoService_listar_NormalizaFiltrosVaciosYValidaElOrden() {
+    void ProcesoService_listar_NormalizaFiltrosVaciosValidaElOrdenYDesempataPorId() {
         PageRequest pagina = PageRequest.of(0, 10, Sort.by("nombre"));
-        when(procesoRepository.buscar(EMPRESA, "", null, "", true, pagina))
+        PageRequest conDesempate = PageRequest.of(0, 10, Sort.by("nombre").and(Sort.by("id")));
+        when(procesoRepository.buscar(EMPRESA, "", null, "", true, conDesempate))
                 .thenReturn(new PageImpl<>(List.of(vacaciones()), pagina, 1));
 
         assertThat(procesoService.listar(EMPRESA, new FiltroProceso(null, null, null, true), pagina).totalElements())

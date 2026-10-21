@@ -367,7 +367,7 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     @Test
     void HU23_compartidoConOtraEmpresa_SoloLectura() throws Exception {
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.compartido").value(true))
                 .andExpect(jsonPath("$.empresas[0].nombre").value("Empresa B"));
@@ -383,7 +383,7 @@ class MensajesYCompartirIT extends IntegracionBase {
 
         // El modelo se comparte; los usuarios, el historial y el catálogo de roles no
         api.get(adminB, "/api/v1/procesos/{id}/historial", proceso).andExpect(status().isNotFound());
-        api.get(adminB, "/api/v1/procesos/{id}/compartir", proceso).andExpect(status().isNotFound());
+        api.get(adminB, "/api/v1/procesos/{id}/comparticion", proceso).andExpect(status().isNotFound());
         api.get(adminB, "/api/v1/pools/{id}/roles-disponibles", poolEmpresa).andExpect(status().isNotFound());
         // Solo lectura: ninguna escritura
         api.put(adminB, "/api/v1/procesos/{id}", Map.of("nombre", "Robado", "categoria", "X", "estado", "BORRADOR"), proceso)
@@ -393,7 +393,7 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(status().isNotFound());
         api.post(adminB, "/api/v1/lanes/{id}/actividades", Map.of("nombre", "Intrusa", "tipoActividad", "TAREA"), laneAnalista)
                 .andExpect(status().isNotFound());
-        api.put(adminB, "/api/v1/procesos/{id}/compartir", Map.of("compartido", false), proceso).andExpect(status().isNotFound());
+        api.put(adminB, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", false), proceso).andExpect(status().isNotFound());
         api.get(adminB, "/api/v1/procesos").andExpect(jsonPath("$.totalElements").value(0));
 
         api.get(admin, "/api/v1/procesos/{id}/historial", proceso)
@@ -404,11 +404,11 @@ class MensajesYCompartirIT extends IntegracionBase {
     @Test
     void HU23_porDefectoNoSeComparte_YDejarDeCompartirRetiraElAcceso() throws Exception {
         api.get(adminB, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());
-        api.get(admin, "/api/v1/procesos/{id}/compartir", proceso).andExpect(jsonPath("$.compartido").value(false));
+        api.get(admin, "/api/v1/procesos/{id}/comparticion", proceso).andExpect(jsonPath("$.compartido").value(false));
 
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso);
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso);
         api.get(adminB, "/api/v1/procesos/{id}", proceso).andExpect(status().isOk());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", false), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", false), proceso)
                 .andExpect(jsonPath("$.compartido").value(false));
 
         api.get(adminB, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());
@@ -419,17 +419,17 @@ class MensajesYCompartirIT extends IntegracionBase {
     void HU23_reglasDeComparticion() throws Exception {
         String adminC = api.registrarEmpresaYEntrar("Empresa C", "811555666-7", "admin@c.com");
 
-        api.put(editor, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
+        api.put(editor, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
                 .andExpect(status().isForbidden());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("123456789")), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("123456789")), proceso)
                 .andExpect(status().isNotFound());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("900111222-1")), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("900111222-1")), proceso)
                 .andExpect(status().isConflict());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true), proceso).andExpect(status().isConflict());
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("no-es-nit")), proceso)
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true), proceso).andExpect(status().isConflict());
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("no-es-nit")), proceso)
                 .andExpect(status().isBadRequest());
 
-        api.put(admin, "/api/v1/procesos/{id}/compartir", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso);
+        api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso);
         api.get(adminC, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());
         api.delete(admin, "/api/v1/procesos/{id}", proceso).andExpect(status().isNoContent());
         api.get(adminB, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());

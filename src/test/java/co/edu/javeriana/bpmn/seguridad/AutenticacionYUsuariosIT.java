@@ -11,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +148,19 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
     }
 
     @Test
+    void HU03_tokenConElPayloadManipulado_Responde401() throws Exception {
+        // Se cambia el uid del payload y se deja la firma original: la firma deja de cuadrar
+        String[] partes = tokenAdminA.split("\\.");
+        String payload = new String(Base64.getUrlDecoder().decode(partes[1]), StandardCharsets.UTF_8)
+                .replaceFirst("\"uid\":\\d+", "\"uid\":999");
+        String manipulado = partes[0] + "."
+                + Base64.getUrlEncoder().withoutPadding().encodeToString(payload.getBytes(StandardCharsets.UTF_8))
+                + "." + partes[2];
+
+        api.get(manipulado, "/api/v1/auth/yo").andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void HU03_tokenExpirado_Responde401() throws Exception {
         Usuario admin = usuarioRepository.findByCorreoIgnoreCase("admin@a.com").orElseThrow();
         String expirado = jwtService.generarToken(admin, Instant.now().minusSeconds(3600));
@@ -217,6 +232,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[*].correo", everyItem(endsWith("@b.com"))))
+                .andExpect(jsonPath("$.content[*].password").doesNotExist())
                 .andExpect(jsonPath("$.pageable").doesNotExist());
     }
 
@@ -227,7 +243,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
         String tokenB = api.registrarEmpresaYEntrar("Empresa B", "800333444-5", "admin@b.com");
 
         api.get(tokenB, "/api/v1/usuarios/{id}", idEva).andExpect(status().isNotFound());
-        api.patch(tokenB, "/api/v1/usuarios/{id}/desactivar", idEva).andExpect(status().isNotFound());
+        api.put(tokenB, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idEva).andExpect(status().isNotFound());
         api.put(tokenB, "/api/v1/usuarios/{id}/rol", Map.of("rol", "LECTOR"), idEva).andExpect(status().isNotFound());
     }
 
@@ -251,7 +267,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
 
         api.put(tokenAdminA, "/api/v1/usuarios/{id}/rol", Map.of("rol", "EDITOR"), idAdmin)
                 .andExpect(status().isConflict());
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/desactivar", idAdmin)
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idAdmin)
                 .andExpect(status().isConflict());
     }
 
@@ -261,7 +277,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
         long idEva = usuarioRepository.findByCorreoIgnoreCase("eva@a.com").orElseThrow().getId();
         api.get(tokenEva, "/api/v1/auth/yo").andExpect(status().isOk());
 
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/desactivar", idEva)
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", false), idEva)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activo").value(false));
 
@@ -273,7 +289,7 @@ class AutenticacionYUsuariosIT extends IntegracionBase {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.activo", is(false)));
 
-        api.patch(tokenAdminA, "/api/v1/usuarios/{id}/activar", idEva).andExpect(status().isOk());
+        api.put(tokenAdminA, "/api/v1/usuarios/{id}/estado", Map.of("activo", true), idEva).andExpect(status().isOk());
         api.intentarLogin("eva@a.com", "ClaveInicial1").andExpect(status().isOk());
     }
 

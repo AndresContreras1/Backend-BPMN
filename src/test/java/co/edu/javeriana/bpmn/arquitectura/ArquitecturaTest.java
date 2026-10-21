@@ -1,5 +1,9 @@
 package co.edu.javeriana.bpmn.arquitectura;
 
+import static com.tngtech.archunit.core.domain.JavaAccess.Predicates.target;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
+import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
@@ -18,7 +22,7 @@ import co.edu.javeriana.bpmn.common.entity.EntidadDeEmpresa;
 import jakarta.persistence.Entity;
 
 /**
- * Reglas de arquitectura: capas, nombres, inyección por constructor y multiempresa.
+ * Reglas de arquitectura: capas, nombres, inyección por constructor, multiempresa y seguridad.
  */
 @AnalyzeClasses(packages = "co.edu.javeriana.bpmn", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArquitecturaTest {
@@ -87,4 +91,24 @@ class ArquitecturaTest {
     static final ArchRule sin_inyeccion_por_atributo = noFields()
             .should().beAnnotatedWith(Autowired.class)
             .because("el proyecto usa inyección por constructor en todas las clases");
+
+    @ArchTest
+    static final ArchRule nada_de_System_out = noClasses()
+            .should().accessField(System.class, "out")
+            .orShould().accessField(System.class, "err")
+            .because("los mensajes van al Logger, no a la consola");
+
+    @ArchTest
+    static final ArchRule la_seguridad_solo_consulta_el_repositorio_desde_el_UserDetailsService = noClasses()
+            .that().resideInAPackage("..security..")
+            .and().doNotHaveSimpleName("CustomUserDetailService")
+            .should().dependOnClassesThat().resideInAPackage("..repository..")
+            .because("el único puente entre Spring Security y la base de datos es el UserDetailsService");
+
+    @ArchTest
+    static final ArchRule los_servicios_no_consultan_sin_filtrar_por_empresa = noClasses()
+            .that().resideInAPackage("..service..")
+            .should().callMethodWhere(target(name("findById").or(name("findAll")).or(name("getReferenceById")))
+                    .and(target(owner(assignableTo(JpaRepository.class)))))
+            .because("findById y findAll no filtran por empresa: los servicios usan las consultas ...EmpresaId (IDOR)");
 }

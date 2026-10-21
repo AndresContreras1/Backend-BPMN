@@ -68,19 +68,19 @@ public class NodoFlujo extends EntidadDeEmpresa {
     @Column(length = 20, nullable = false)
     private TipoNodo tipo;
 
-    @Column(length = 120)
+    @Column(length = 120, nullable = true)
     private String nombre;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_actividad", length = 20)
+    @Column(name = "tipo_actividad", length = 20, nullable = true)
     private TipoActividad tipoActividad;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_gateway", length = 20)
+    @Column(name = "tipo_gateway", length = 20, nullable = true)
     private TipoGateway tipoGateway;
 
     @Enumerated(EnumType.STRING)
-    @Column(length = 20)
+    @Column(length = 20, nullable = true)
     private VarianteEvento variante;
 
     /** Posición donde el usuario ubicó el elemento en el lienzo (HU-08). */

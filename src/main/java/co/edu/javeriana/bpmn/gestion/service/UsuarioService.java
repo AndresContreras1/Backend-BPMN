@@ -3,6 +3,7 @@ package co.edu.javeriana.bpmn.gestion.service;
 import org.springframework.data.domain.Pageable;
 
 import co.edu.javeriana.bpmn.common.dto.PageResponse;
+import co.edu.javeriana.bpmn.gestion.dto.CambioEstadoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.CambioRolRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioResponse;
@@ -18,7 +19,5 @@ public interface UsuarioService {
 
     UsuarioResponse cambiarRol(Long id, CambioRolRequest request, Long empresaId, Long actorId);
 
-    UsuarioResponse desactivar(Long id, Long empresaId, Long actorId);
-
-    UsuarioResponse activar(Long id, Long empresaId);
+    UsuarioResponse cambiarEstado(Long id, CambioEstadoRequest request, Long empresaId, Long actorId);
 }

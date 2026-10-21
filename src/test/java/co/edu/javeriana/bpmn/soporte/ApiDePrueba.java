@@ -93,10 +93,6 @@ public class ApiDePrueba {
                 .contentType(MediaType.APPLICATION_JSON).content(json(cuerpo)));
     }
 
-    public ResultActions patch(String token, String url, Object... variables) throws Exception {
-        return mockMvc.perform(conToken(MockMvcRequestBuilders.patch(url, variables), token));
-    }
-
     public ResultActions delete(String token, String url, Object... variables) throws Exception {
         return mockMvc.perform(conToken(MockMvcRequestBuilders.delete(url, variables), token));
     }
@@ -127,7 +123,6 @@ public class ApiDePrueba {
         static MockHttpServletRequestBuilder get(String url, Object... v) { return org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url, v); }
         static MockHttpServletRequestBuilder post(String url, Object... v) { return org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(url, v); }
         static MockHttpServletRequestBuilder put(String url, Object... v) { return org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put(url, v); }
-        static MockHttpServletRequestBuilder patch(String url, Object... v) { return org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(url, v); }
         static MockHttpServletRequestBuilder delete(String url, Object... v) { return org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(url, v); }
     }
 }

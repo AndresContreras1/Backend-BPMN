@@ -580,10 +580,24 @@
         {
           "name": "Desactivar usuario",
           "request": {
-            "method": "PATCH",
-            "header": [],
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/desactivar",
+              "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/estado",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -592,7 +606,7 @@
                 "v1",
                 "usuarios",
                 "{{usuarioId}}",
-                "desactivar"
+                "estado"
               ]
             }
           },
@@ -611,10 +625,24 @@
         {
           "name": "Reactivar usuario",
           "request": {
-            "method": "PATCH",
-            "header": [],
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
             "url": {
-              "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/activar",
+              "raw": "{{baseUrl}}/api/v1/usuarios/{{usuarioId}}/estado",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -623,7 +651,7 @@
                 "v1",
                 "usuarios",
                 "{{usuarioId}}",
-                "activar"
+                "estado"
               ]
             }
           },
@@ -2269,7 +2297,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/compartir",
+              "raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/comparticion",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2278,7 +2306,7 @@
                 "v1",
                 "procesos",
                 "{{procesoId}}",
-                "compartir"
+                "comparticion"
               ]
             },
             "body": {
@@ -2309,7 +2337,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/compartir",
+              "raw": "{{baseUrl}}/api/v1/procesos/{{procesoId}}/comparticion",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -2318,7 +2346,7 @@
                 "v1",
                 "procesos",
                 "{{procesoId}}",
-                "compartir"
+                "comparticion"
               ]
             }
           },

@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import co.edu.javeriana.bpmn.common.dto.PageResponse;
 import co.edu.javeriana.bpmn.common.exception.NotFoundException;
@@ -137,7 +138,7 @@ class RolProcesoServiceImplTest {
     void RolProcesoService_listar_AgrupaElUsoEnUnaSolaConsulta() {
         RolProceso rol = analista();
         PageRequest pagina = PageRequest.of(0, 10);
-        when(rolRepository.findByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(EMPRESA, "", pagina))
+        when(rolRepository.findByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(EMPRESA, "", conDesempate(pagina)))
                 .thenReturn(new PageImpl<>(List.of(rol), pagina, 1));
         when(rolRepository.usoDeRoles(List.of(3L))).thenReturn(List.of(new UsoDeRol(3L, 5L, "Vacaciones")));
 
@@ -150,7 +151,7 @@ class RolProcesoServiceImplTest {
     @Test
     void RolProcesoService_listar_PaginaVaciaNoConsultaElUso() {
         PageRequest pagina = PageRequest.of(0, 10);
-        when(rolRepository.findByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(EMPRESA, "x", pagina))
+        when(rolRepository.findByEmpresaIdAndActivoTrueAndNombreContainingIgnoreCase(EMPRESA, "x", conDesempate(pagina)))
                 .thenReturn(new PageImpl<>(List.of(), pagina, 0));
 
         assertThat(rolService.listar(EMPRESA, "x", pagina).content()).isEmpty();
@@ -162,5 +163,10 @@ class RolProcesoServiceImplTest {
         when(rolRepository.findByIdAndEmpresaIdAndActivoTrue(3L, EMPRESA)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> rolService.procesos(3L, EMPRESA)).isInstanceOf(NotFoundException.class);
+    }
+
+    /** El servicio agrega el id como desempate del orden (Paginacion.validarOrden). */
+    private static PageRequest conDesempate(PageRequest pagina) {
+        return PageRequest.of(pagina.getPageNumber(), pagina.getPageSize(), pagina.getSort().and(Sort.by("id")));
     }
 }

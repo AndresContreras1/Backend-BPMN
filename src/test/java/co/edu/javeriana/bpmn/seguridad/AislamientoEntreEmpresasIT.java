@@ -61,7 +61,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/procesos/%d/pools", "proceso"),
                 arguments("/api/v1/procesos/%d/arcos", "proceso"),
                 arguments("/api/v1/procesos/%d/mensajes", "proceso"),
-                arguments("/api/v1/procesos/%d/compartir", "proceso"),
+                arguments("/api/v1/procesos/%d/comparticion", "proceso"),
                 arguments("/api/v1/pools/%d", "pool"),
                 arguments("/api/v1/pools/%d/lanes", "pool"),
                 arguments("/api/v1/pools/%d/roles-disponibles", "pool"),
@@ -97,7 +97,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
     static Stream<Arguments> ediciones() {
         return Stream.of(
                 arguments("/api/v1/procesos/%d", "proceso", Map.of("nombre", "X", "categoria", "X", "estado", "BORRADOR")),
-                arguments("/api/v1/procesos/%d/compartir", "proceso", Map.of("compartido", false)),
+                arguments("/api/v1/procesos/%d/comparticion", "proceso", Map.of("compartido", false)),
                 arguments("/api/v1/pools/%d", "pool", Map.of("nombre", "X", "tipo", "PROPIETARIO")),
                 arguments("/api/v1/pools/%d/permisos", "pool", Map.of("permiso", "SOLO_ADMINISTRADOR")),
                 arguments("/api/v1/roles-proceso/%d", "rol", Map.of("nombre", "X")),

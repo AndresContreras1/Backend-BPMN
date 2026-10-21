@@ -62,10 +62,10 @@ public class Arco extends EntidadDeEmpresa {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NodoFlujo destino;
 
-    @Column(length = 80)
+    @Column(length = 80, nullable = true)
     private String etiqueta;
 
-    @Column(length = 200)
+    @Column(length = 200, nullable = true)
     private String condicion;
 
     @Column(nullable = false)

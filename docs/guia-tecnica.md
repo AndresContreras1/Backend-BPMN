@@ -65,7 +65,7 @@ erDiagram
 | 17–20 | `/roles-proceso` | `RolProcesoService` | Único; renombrar actualiza lanes; en uso no se elimina |
 | 21 | `/procesos/{id}/pools`, `/pools/{id}` | `PoolService` | Propietario único; sistema externo caja negra |
 | 22 | `/pools/{id}/lanes`, `/lanes/{id}` | `LaneService` | Rol de la empresa; reordenar; lane con elementos no se elimina |
-| 23 | `/procesos/{id}/compartir`, `/procesos/compartidos` | `ProcesoService` | Solo lectura para la invitada |
+| 23 | `/procesos/{id}/comparticion`, `/procesos/compartidos` | `ProcesoService` | Solo lectura para la invitada |
 | 24 | `/pools/{id}/permisos`, `/pools/{id}/roles-disponibles` | `PoolService`, `ReglasDeEstructura` | Lector solo ve; editor según el permiso |
 | 25 | `/procesos/{id}/mensajes/throw` | `MensajeService.crearThrow` | Cruza a otro pool del mismo diagrama; aviso sin receptor |
 | 26 | `/procesos/{id}/mensajes/externos` | `MensajeService.crearEnvioExterno` | Caja negra; destino, datos, momento, política de fallo |
@@ -93,7 +93,9 @@ erDiagram
 | Controlador | `@WebMvcTest` + MockMvc | Mapeo, validación, códigos HTTP |
 | Integración | `@SpringBootTest` + MockMvc + JWT real | Las 28 HU de punta a punta, una transacción por petición |
 | Aislamiento | `@ParameterizedTest` | Cada recurso de otra empresa responde 404 en lectura, edición y borrado |
-| Arquitectura | ArchUnit | Capas, nombres, multiempresa, inyección por constructor |
+| Arquitectura | ArchUnit | Capas, nombres, multiempresa, inyección por constructor, sin `System.out`, servicios sin consultas sin empresa |
+| Migraciones | Testcontainers (PostgreSQL 16) | Flyway aplica el esquema versionado y Hibernate lo valida |
+| Límite de intentos | `RateLimitIT` | 429 con `Retry-After` en login y registro |
 | Manual / evidencia | Postman + Newman | Colección `postman/` con pruebas en cada petición |
 
 Cobertura medida con JaCoCo: mínimo 50 % de línea en el proyecto y 70 % de línea / 60 % de rama en los servicios.
@@ -102,4 +104,5 @@ Cobertura medida con JaCoCo: mínimo 50 % de línea en el proyecto y 70 % de lí
 
 - Seguridad: ya está activa (JWT, roles, aislamiento).
 - Despliegue: `.github/workflows/deploy.yaml` (imagen a GHCR + microk8s con runner self-hosted, se ejecuta a mano hasta registrar el runner) y `k8s/deployment.yaml`.
-- Pendiente para la entrega 3: pruebas E2E con Selenium sobre el frontend, pruebas de carga y migraciones con Flyway.
+- Migraciones: Flyway en el perfil `prod` (`db/migration`), con `ddl-auto=validate`.
+- Pendiente para la entrega 3: pruebas E2E con Selenium sobre el frontend, pruebas de carga con k6, HTTPS y cabeceras de seguridad (HSTS, CSP) en el despliegue.

@@ -9,7 +9,6 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import co.edu.javeriana.bpmn.gestion.entity.Usuario;
-import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,11 +24,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String PREFIJO = "Bearer ";
 
     private final JwtService jwtService;
-    private final UsuarioRepository usuarioRepository;
+    private final CustomUserDetailService userDetailService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UsuarioRepository usuarioRepository) {
+    public JwtAuthenticationFilter(JwtService jwtService, CustomUserDetailService userDetailService) {
         this.jwtService = jwtService;
-        this.usuarioRepository = usuarioRepository;
+        this.userDetailService = userDetailService;
     }
 
     @Override
@@ -39,8 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extraerToken(request);
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             jwtService.usuarioIdSiEsValido(token)
-                    .flatMap(usuarioRepository::findById)
-                    .filter(Usuario::isActivo)
+                    .flatMap(userDetailService::buscarActivoPorId)
                     .ifPresent(usuario -> autenticar(usuario, request));
         }
         filterChain.doFilter(request, response);

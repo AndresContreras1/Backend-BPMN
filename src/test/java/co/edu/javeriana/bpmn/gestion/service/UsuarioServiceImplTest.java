@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import co.edu.javeriana.bpmn.common.exception.NotFoundException;
 import co.edu.javeriana.bpmn.common.exception.ParametroInvalidoException;
 import co.edu.javeriana.bpmn.common.exception.ReglaDeNegocioException;
+import co.edu.javeriana.bpmn.gestion.dto.CambioEstadoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.CambioRolRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioRequest;
 import co.edu.javeriana.bpmn.gestion.dto.UsuarioResponse;
@@ -129,39 +130,39 @@ class UsuarioServiceImplTest {
     }
 
     @Test
-    void UsuarioService_desactivar_SuPropiaCuentaLanzaReglaDeNegocio() {
+    void UsuarioService_cambiarEstado_SuPropiaCuentaLanzaReglaDeNegocio() {
         when(usuarioRepository.findByIdAndEmpresaId(ACTOR, EMPRESA))
                 .thenReturn(Optional.of(usuario(ACTOR, RolAcceso.ADMINISTRADOR, true)));
 
-        assertThatThrownBy(() -> usuarioService.desactivar(ACTOR, EMPRESA, ACTOR))
+        assertThatThrownBy(() -> usuarioService.cambiarEstado(ACTOR, new CambioEstadoRequest(false), EMPRESA, ACTOR))
                 .isInstanceOf(ReglaDeNegocioException.class);
     }
 
     @Test
-    void UsuarioService_desactivar_EditorQuedaInactivoSinBorrarse() {
+    void UsuarioService_cambiarEstado_EditorQuedaInactivoSinBorrarse() {
         Usuario editor = usuario(5L, RolAcceso.EDITOR, true);
         when(usuarioRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(editor));
 
-        assertThat(usuarioService.desactivar(5L, EMPRESA, ACTOR).activo()).isFalse();
+        assertThat(usuarioService.cambiarEstado(5L, new CambioEstadoRequest(false), EMPRESA, ACTOR).activo()).isFalse();
         verify(usuarioRepository, never()).delete(any());
     }
 
     @Test
-    void UsuarioService_desactivar_UltimoAdministradorActivoNo() {
+    void UsuarioService_cambiarEstado_UltimoAdministradorActivoNo() {
         when(usuarioRepository.findByIdAndEmpresaId(5L, EMPRESA))
                 .thenReturn(Optional.of(usuario(5L, RolAcceso.ADMINISTRADOR, true)));
         when(usuarioRepository.countByEmpresaIdAndRolAndActivoTrue(EMPRESA, RolAcceso.ADMINISTRADOR)).thenReturn(1L);
 
-        assertThatThrownBy(() -> usuarioService.desactivar(5L, EMPRESA, ACTOR))
+        assertThatThrownBy(() -> usuarioService.cambiarEstado(5L, new CambioEstadoRequest(false), EMPRESA, ACTOR))
                 .isInstanceOf(ReglaDeNegocioException.class);
     }
 
     @Test
-    void UsuarioService_activar_ReactivaUsuario() {
+    void UsuarioService_cambiarEstado_ReactivaUsuario() {
         Usuario inactivo = usuario(5L, RolAcceso.LECTOR, false);
         when(usuarioRepository.findByIdAndEmpresaId(5L, EMPRESA)).thenReturn(Optional.of(inactivo));
 
-        assertThat(usuarioService.activar(5L, EMPRESA).activo()).isTrue();
+        assertThat(usuarioService.cambiarEstado(5L, new CambioEstadoRequest(true), EMPRESA, ACTOR).activo()).isTrue();
     }
 
     @Test
