@@ -36,8 +36,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 /**
- * Verifica que cada tipo de error salga como ProblemDetail con el código HTTP correcto
- * y sin filtrar detalles internos.
+ * Verifica que cada tipo de error salga como ProblemDetail con el código HTTP correcto,
+ * su código interno y sin filtrar detalles internos.
  */
 class GlobalExceptionHandlerTest {
 
@@ -120,7 +120,9 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.title").value("Recurso no encontrado"))
                 .andExpect(jsonPath("$.detail").value("No existe el proceso 99"))
-                .andExpect(jsonPath("$.instance").value("/prueba/no-existe"));
+                .andExpect(jsonPath("$.instance").value("/prueba/no-existe"))
+                .andExpect(jsonPath("$.codigo").value("RECURSO_NO_ENCONTRADO"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 
     @Test
@@ -128,6 +130,7 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/prueba/regla"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Regla de negocio"))
+                .andExpect(jsonPath("$.codigo").value("REGLA_DE_NEGOCIO"))
                 .andExpect(jsonPath("$.detalles[0]").value("Vacaciones"))
                 .andExpect(jsonPath("$.detalles[1]").value("Compras"));
     }
@@ -146,6 +149,7 @@ class GlobalExceptionHandlerTest {
                         .content("{\"nombre\":\"  \",\"correo\":\"no-es-correo\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Datos inválidos"))
+                .andExpect(jsonPath("$.codigo").value("DATOS_INVALIDOS"))
                 .andExpect(jsonPath("$.errors.nombre").value("El nombre es obligatorio"))
                 .andExpect(jsonPath("$.errors.correo").value("El correo no tiene un formato válido"));
     }
@@ -157,6 +161,7 @@ class GlobalExceptionHandlerTest {
                         .content("{\"nombre\": "))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Cuerpo inválido"))
+                .andExpect(jsonPath("$.codigo").value("CUERPO_INVALIDO"))
                 .andExpect(jsonPath("$.trace").doesNotExist());
     }
 
@@ -171,7 +176,8 @@ class GlobalExceptionHandlerTest {
     void GlobalExceptionHandler_parametroFaltante_Responde400() throws Exception {
         mockMvc.perform(get("/prueba/parametro"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Parámetro faltante"));
+                .andExpect(jsonPath("$.title").value("Parámetro faltante"))
+                .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
     }
 
     @Test
@@ -185,40 +191,47 @@ class GlobalExceptionHandlerTest {
     void GlobalExceptionHandler_conflictoDeVersion_Responde409() throws Exception {
         mockMvc.perform(get("/prueba/version"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Conflicto de edición"));
+                .andExpect(jsonPath("$.title").value("Conflicto de edición"))
+                .andExpect(jsonPath("$.codigo").value("CONFLICTO_DE_EDICION"));
     }
 
     @Test
     void GlobalExceptionHandler_violacionDeIntegridad_Responde409SinNombreDeTabla() throws Exception {
         mockMvc.perform(get("/prueba/integridad"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.detail").value("El dato ya existe o viola una restricción de integridad"));
+                .andExpect(jsonPath("$.detail").value("El dato ya existe o viola una restricción de integridad"))
+                .andExpect(jsonPath("$.codigo").value("CONFLICTO_DE_DATOS"));
     }
 
     @Test
     void GlobalExceptionHandler_metodoNoPermitido_Responde405() throws Exception {
         mockMvc.perform(delete("/prueba/no-existe"))
                 .andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.title").value("Método no permitido"));
+                .andExpect(jsonPath("$.title").value("Método no permitido"))
+                .andExpect(jsonPath("$.codigo").value("METODO_NO_PERMITIDO"));
     }
 
     @Test
     void GlobalExceptionHandler_tipoDeContenidoNoSoportado_Responde415() throws Exception {
         mockMvc.perform(post("/prueba/validar").contentType(MediaType.TEXT_PLAIN).content("hola"))
-                .andExpect(status().isUnsupportedMediaType());
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.codigo").value("TIPO_DE_CONTENIDO_NO_SOPORTADO"));
     }
 
     @Test
     void GlobalExceptionHandler_cabeceraFaltante_ConservaElCodigo400DeSpring() throws Exception {
         mockMvc.perform(get("/prueba/cabecera"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400));
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.codigo").value("PETICION_INVALIDA"))
+                .andExpect(jsonPath("$.timestamp").isNotEmpty());
     }
 
     @Test
     void GlobalExceptionHandler_errorInesperado_Responde500SinDetalleInterno() throws Exception {
         mockMvc.perform(get("/prueba/explota"))
                 .andExpect(status().isInternalServerError())
-                .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado"));
+                .andExpect(jsonPath("$.detail").value("Ocurrió un error inesperado"))
+                .andExpect(jsonPath("$.codigo").value("ERROR_INTERNO"));
     }
 }

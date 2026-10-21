@@ -59,7 +59,33 @@ Usuarios:
 
 ## Endpoints
 
-Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados devuelven `PageResponse` (`content`, `page`, `size`, `totalElements`, `totalPages`).
+Todos bajo `/api/v1`. Los listados devuelven `PageResponse` (`content`, `page`, `size`, `totalElements`, `totalPages`). Los errores salen como ProblemDetail (`application/problem+json`) con dos propiedades propias: `codigo`, un código interno estable para que el cliente decida qué hacer sin leer el mensaje, y `timestamp`:
+
+```json
+{
+  "type": "about:blank",
+  "title": "Recurso no encontrado",
+  "status": 404,
+  "detail": "No existe el proceso 999999",
+  "instance": "/api/v1/procesos/999999",
+  "codigo": "RECURSO_NO_ENCONTRADO",
+  "timestamp": "2026-10-19T23:40:12.345Z"
+}
+```
+
+| `codigo` | HTTP | Cuándo |
+|---|---|---|
+| `DATOS_INVALIDOS` | 400 | `@Valid` falló; `errors` trae el mensaje de cada campo |
+| `PARAMETRO_INVALIDO` · `CUERPO_INVALIDO` · `PETICION_INVALIDA` | 400 | Parámetro u orden no permitido · JSON ilegible o con campos desconocidos · otro rechazo de Spring MVC |
+| `CREDENCIALES_INVALIDAS` · `NO_AUTENTICADO` | 401 | Login fallido (mensaje genérico) · sin token, token inválido o vencido |
+| `SIN_PERMISOS` | 403 | El rol de acceso no permite la operación |
+| `RECURSO_NO_ENCONTRADO` | 404 | No existe o es de otra empresa |
+| `METODO_NO_PERMITIDO` · `TIPO_DE_CONTENIDO_NO_SOPORTADO` | 405 · 415 | Método o `Content-Type` equivocados |
+| `REGLA_DE_NEGOCIO` · `CONFLICTO_DE_EDICION` · `CONFLICTO_DE_DATOS` | 409 | Regla del negocio o del modelo BPMN (`detalles` cuando aplica) · versión desactualizada · restricción de la base |
+| `DEMASIADAS_PETICIONES` | 429 | Límite de intentos del login o del registro |
+| `ERROR_INTERNO` | 500 | Error inesperado, sin detalles internos (la traza va al log) |
+
+En el log, los 404 se registran en `DEBUG`, los demás errores del cliente en `WARN` y los fallos internos en `ERROR` con la traza.
 
 | HU | Método y ruta | Descripción | Rol |
 |---|---|---|---|
@@ -73,6 +99,7 @@ Todos bajo `/api/v1`. Las respuestas de error usan ProblemDetail; los listados d
 | HU-02 | `PUT /usuarios/{id}/estado` (`{"activo": false}`) | Desactivar o reactivar sin borrar | ADMINISTRADOR |
 | HU-07 | `GET /procesos?nombre=&estado=&categoria=&activo=` | Buscar, filtrar y paginar procesos | todos |
 | HU-07 | `GET /procesos/categorias` | Categorías en uso | todos |
+| HU-07 | `GET /procesos/resumen` | Indicadores del inicio: activos por estado, eliminados y compartidos conmigo | todos |
 | HU-07 | `GET /procesos/{id}` · `GET /procesos/{id}/historial` | Ficha e historial de cambios | todos |
 | HU-04 | `POST /procesos` | Crear proceso (BORRADOR, con el pool de la empresa) | ADMINISTRADOR, EDITOR |
 | HU-05 | `PUT /procesos/{id}` | Editar nombre, descripción, categoría y estado | ADMINISTRADOR, EDITOR |

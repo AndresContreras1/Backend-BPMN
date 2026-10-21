@@ -9,12 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-
 
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
@@ -259,6 +259,27 @@ class ProcesosIT extends IntegracionBase {
     void HU07_ordenarPorCampoNoPermitidoOInexistente_Responde400() throws Exception {
         api.get(lector, "/api/v1/procesos?sort=empresaId").andExpect(status().isBadRequest());
         api.get(lector, "/api/v1/procesos?sort=noExiste").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void HU07_resumen_CuentaPorEstadoEliminadosYCompartidosSoloDeLaEmpresa() throws Exception {
+        long vacaciones = crear(editor, "Vacaciones", "TH");
+        long obsoleto = crear(editor, "Obsoleto", "TH");
+        api.delete(admin, "/api/v1/procesos/{id}", obsoleto).andExpect(status().isNoContent());
+        api.put(admin, "/api/v1/procesos/{id}/comparticion",
+                Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), vacaciones)
+                .andExpect(status().isOk());
+
+        api.get(lector, "/api/v1/procesos/resumen")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.borradores").value(1))
+                .andExpect(jsonPath("$.publicados").value(0))
+                .andExpect(jsonPath("$.eliminados").value(1))
+                .andExpect(jsonPath("$.compartidosConmigo").value(0));
+        api.get(adminOtraEmpresa, "/api/v1/procesos/resumen")
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.compartidosConmigo").value(1));
     }
 
     @Test

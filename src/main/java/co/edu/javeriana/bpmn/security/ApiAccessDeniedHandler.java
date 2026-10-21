@@ -7,6 +7,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
 
+import co.edu.javeriana.bpmn.common.exception.CodigoError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -23,7 +24,7 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {
-        escritor.escribir(response, HttpStatus.FORBIDDEN,
+        escritor.escribir(response, HttpStatus.FORBIDDEN, CodigoError.SIN_PERMISOS,
                 "Sin permisos",
                 "Su rol no permite realizar esta operación",
                 request.getRequestURI());

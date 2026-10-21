@@ -44,6 +44,18 @@ public interface ProcesoRepository extends JpaRepository<Proceso, Long> {
            """)
     Page<Proceso> buscarCompartidosCon(@Param("empresaId") Long empresaId, Pageable pageable);
 
+    /** HU-23: cuántos procesos activos compartieron otras empresas con esta (indicador del inicio). */
+    @Query("""
+           select count(p) from Proceso p
+           where p.activo = true
+             and exists (select 1 from ProcesoCompartido c
+                         where c.proceso = p and c.empresaInvitadaId = :empresaId and c.activo = true)
+           """)
+    long contarCompartidosCon(@Param("empresaId") Long empresaId);
+
+    /** HU-06: procesos eliminados lógicamente (consulta derivada). */
+    long countByEmpresaIdAndActivoFalse(Long empresaId);
+
     boolean existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrue(String nombre, Long empresaId);
 
     boolean existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrueAndIdNot(String nombre, Long empresaId, Long id);

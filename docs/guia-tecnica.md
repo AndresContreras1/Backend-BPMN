@@ -82,7 +82,10 @@ erDiagram
 | 403 | El rol de acceso no permite la operación |
 | 404 | No existe o es de otra empresa |
 | 409 | Regla de negocio o del modelo BPMN (`detalles` con la lista cuando aplica), conflicto de versión |
+| 429 | Límite de intentos del login o del registro, con `Retry-After` |
 | 500 | Error inesperado, sin detalles internos |
+
+Cada respuesta de error lleva `codigo` (enum `CodigoError`) y `timestamp`, armados en un solo lugar (`Problemas`) que usan el `GlobalExceptionHandler` y los errores de la cadena de filtros (`EscritorDeProblemDetail`). La tabla completa está en el README.
 
 ## 5. Estrategia de pruebas
 

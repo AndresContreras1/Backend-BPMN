@@ -8,6 +8,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
+import co.edu.javeriana.bpmn.common.exception.CodigoError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -25,7 +26,7 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-        escritor.escribir(response, HttpStatus.UNAUTHORIZED,
+        escritor.escribir(response, HttpStatus.UNAUTHORIZED, CodigoError.NO_AUTENTICADO,
                 "No autenticado",
                 "Debe iniciar sesión para acceder a este recurso",
                 request.getRequestURI());

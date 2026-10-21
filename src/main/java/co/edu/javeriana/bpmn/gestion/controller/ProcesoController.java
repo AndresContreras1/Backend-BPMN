@@ -30,6 +30,7 @@ import co.edu.javeriana.bpmn.gestion.dto.HistorialResponse;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
+import co.edu.javeriana.bpmn.gestion.dto.ResumenProcesosResponse;
 import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
 import co.edu.javeriana.bpmn.gestion.service.ProcesoService;
 import co.edu.javeriana.bpmn.security.ApiPrincipal;
@@ -69,6 +70,14 @@ public class ProcesoController {
     @Operation(summary = "HU-07 · Categorías en uso", description = "Para llenar el filtro por categoría")
     public List<String> categorias(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
         return procesoService.categorias(principal.empresaId());
+    }
+
+    // GET http://localhost:8090/api/v1/procesos/resumen
+    @GetMapping("/resumen")
+    @Operation(summary = "HU-07 · Indicadores de procesos",
+            description = "Activos por estado, eliminados y compartidos conmigo, para la página de inicio")
+    public ResumenProcesosResponse resumen(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
+        return procesoService.resumen(principal.empresaId());
     }
 
     // GET http://localhost:8090/api/v1/procesos/compartidos

@@ -13,6 +13,7 @@ import co.edu.javeriana.bpmn.gestion.dto.HistorialResponse;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
+import co.edu.javeriana.bpmn.gestion.dto.ResumenProcesosResponse;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
 
 public interface ProcesoService {
@@ -21,6 +22,9 @@ public interface ProcesoService {
     PageResponse<ProcesoResponse> listar(Long empresaId, FiltroProceso filtro, Pageable pageable);
 
     List<String> categorias(Long empresaId);
+
+    /** HU-07: indicadores del inicio (por estado, eliminados y compartidos conmigo). */
+    ResumenProcesosResponse resumen(Long empresaId);
 
     /** HU-07: ficha del proceso (incluye los inactivos para consultarlos con filtro, HU-06). */
     ProcesoResponse obtener(Long id, Long empresaId);
