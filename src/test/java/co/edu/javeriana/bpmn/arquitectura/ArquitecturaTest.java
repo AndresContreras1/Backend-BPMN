@@ -33,7 +33,8 @@ class ArquitecturaTest {
     @ArchTest
     static final ArchRule los_repositorios_no_dependen_de_capas_superiores = noClasses()
             .that().resideInAPackage("..repository..")
-            .should().dependOnClassesThat().resideInAnyPackage("..service..", "..controller..", "..dto..");
+            .should().dependOnClassesThat().resideInAnyPackage("..service..", "..controller..")
+            .because("el repositorio solo consulta; puede devolver proyecciones JPQL a DTO");
 
     @ArchTest
     static final ArchRule las_entidades_no_dependen_de_otras_capas = noClasses()

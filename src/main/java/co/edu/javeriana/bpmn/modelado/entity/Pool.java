@@ -1,5 +1,11 @@
 package co.edu.javeriana.bpmn.modelado.entity;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
+
 import co.edu.javeriana.bpmn.common.entity.EntidadDeEmpresa;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
 import jakarta.persistence.Column;
@@ -13,6 +19,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -30,7 +37,7 @@ import lombok.ToString;
 @Table(name = "pool", indexes = @Index(name = "idx_pool_proceso", columnList = "proceso_id"))
 @Getter
 @Setter
-@ToString(exclude = "proceso")
+@ToString(exclude = {"proceso", "lanes"})
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -65,4 +72,9 @@ public class Pool extends EntidadDeEmpresa {
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;
+
+    @OneToMany(mappedBy = "pool")
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @Builder.Default
+    private List<Lane> lanes = new ArrayList<>();
 }
