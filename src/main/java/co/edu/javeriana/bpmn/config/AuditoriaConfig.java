@@ -19,15 +19,20 @@ import co.edu.javeriana.bpmn.security.ApiPrincipal;
 @EnableJpaAuditing
 public class AuditoriaConfig {
 
+    /** Nombre que se guarda como autor cuando no hay un usuario autenticado. */
     public static final String AUDITOR_SISTEMA = "sistema";
 
+    /** Le dice a JPA quién es el autor del cambio actual (alimenta creadoPor y modificadoPor). */
     @Bean
     public AuditorAware<String> auditorAware() {
         return () -> {
+            // Se consulta el usuario autenticado de la petición en curso.
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getPrincipal() instanceof ApiPrincipal principal) {
+                // Con usuario autenticado, el autor es su correo.
                 return Optional.of(principal.correo());
             }
+            // Sin sesión (registro de empresa, DataLoader) el autor es "sistema".
             return Optional.of(AUDITOR_SISTEMA);
         };
     }

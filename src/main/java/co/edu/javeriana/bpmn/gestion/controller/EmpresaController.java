@@ -23,18 +23,31 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+/**
+ * Controlador de empresas (HU-01): registro de una empresa nueva y consulta de la empresa propia.
+ * Solo recibe la petición HTTP y delega en EmpresaService.
+ */
+// @RestController: devuelve JSON. @RequestMapping: prefijo de las rutas. @Tag: agrupa en Swagger.
 @RestController
 @RequestMapping("/api/v1/empresas")
 @Tag(name = "HU-01 · Empresas", description = "Registro de la empresa como espacio independiente")
 public class EmpresaController {
 
+    /** Servicio con la lógica de empresas. */
     private final EmpresaService empresaService;
 
+    /** Constructor: Spring inyecta el servicio automáticamente. */
     public EmpresaController(EmpresaService empresaService) {
         this.empresaService = empresaService;
     }
 
     // POST http://localhost:8090/api/v1/empresas
+    /**
+     * Registra una empresa y su administrador inicial. Es público (@SecurityRequirements vacío: no
+     * pide token, porque quien se registra todavía no tiene cuenta). Devuelve 201 Created con la
+     * cabecera Location apuntando a la empresa nueva; 400 si hay datos inválidos y 409 si el NIT
+     * o el correo ya existen.
+     */
     @PostMapping
     @SecurityRequirements
     @Operation(summary = "HU-01 · Registrar empresa", description = "Crea la empresa y su administrador inicial con las credenciales del representante")
@@ -47,6 +60,7 @@ public class EmpresaController {
     }
 
     // GET http://localhost:8090/api/v1/empresas/actual
+    /** Devuelve la empresa del usuario autenticado (200); el id de empresa sale del token. */
     @GetMapping("/actual")
     @Operation(summary = "HU-03 · Empresa del usuario autenticado")
     public EmpresaResponse actual(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
@@ -54,6 +68,10 @@ public class EmpresaController {
     }
 
     // GET http://localhost:8090/api/v1/empresas/{id}
+    /**
+     * Consulta una empresa por id (200). Solo responde si es la empresa del usuario autenticado;
+     * cualquier otra devuelve 404 para no revelar que existe.
+     */
     @GetMapping("/{id}")
     @Operation(summary = "Consultar empresa", description = "Solo responde la empresa del usuario autenticado; cualquier otra es 404")
     public EmpresaResponse obtener(@PathVariable Long id,

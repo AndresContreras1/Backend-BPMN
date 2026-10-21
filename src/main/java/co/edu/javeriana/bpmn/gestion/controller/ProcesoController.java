@@ -40,18 +40,29 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+/**
+ * Controlador de procesos (HU-04 a HU-07 y HU-23). Solo recibe la petición HTTP y delega en
+ * ProcesoService. La empresa siempre sale del token del usuario autenticado (principal).
+ */
+// @RestController: devuelve JSON. @RequestMapping: prefijo de las rutas. @Tag: agrupa en Swagger.
 @RestController
 @RequestMapping("/api/v1/procesos")
 @Tag(name = "HU-04 a HU-07 · Procesos", description = "Crear, editar, eliminar (lógico) y consultar procesos de la empresa")
 public class ProcesoController {
 
+    /** Servicio con la lógica de procesos. */
     private final ProcesoService procesoService;
 
+    /** Constructor: Spring inyecta el servicio automáticamente. */
     public ProcesoController(ProcesoService procesoService) {
         this.procesoService = procesoService;
     }
 
     // GET http://localhost:8090/api/v1/procesos?nombre=&estado=&categoria=&activo=true&page=0&size=10&sort=nombre,asc
+    /**
+     * Lista los procesos de la empresa (200), paginados. Filtros opcionales por nombre, estado y
+     * categoría; activo=false muestra los eliminados. Por defecto: páginas de 10 ordenadas por nombre.
+     */
     @GetMapping
     @Operation(summary = "HU-07 · Consultar procesos",
             description = "Paginado, con búsqueda por nombre y filtros por estado y categoría. activo=false lista los eliminados (HU-06)")
@@ -66,6 +77,7 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/categorias
+    /** Devuelve (200) las categorías en uso de la empresa, para llenar el filtro de la lista. */
     @GetMapping("/categorias")
     @Operation(summary = "HU-07 · Categorías en uso", description = "Para llenar el filtro por categoría")
     public List<String> categorias(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
@@ -73,6 +85,7 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/resumen
+    /** Devuelve (200) los contadores de la página de inicio: por estado, eliminados y compartidos. */
     @GetMapping("/resumen")
     @Operation(summary = "HU-07 · Indicadores de procesos",
             description = "Activos por estado, eliminados y compartidos conmigo, para la página de inicio")
@@ -81,6 +94,7 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/compartidos
+    /** Lista (200) los procesos que otras empresas compartieron con la mía; son de solo lectura. */
     @GetMapping("/compartidos")
     @Operation(summary = "HU-23 · Procesos compartidos conmigo", description = "Solo lectura")
     public PageResponse<ProcesoCompartidoResponse> compartidosConmigo(
@@ -90,6 +104,7 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/{id}/comparticion
+    /** Devuelve (200) con qué empresas está compartido el proceso (solo la empresa dueña lo ve). */
     @GetMapping("/{id}/comparticion")
     @Operation(summary = "HU-23 · Estado de compartición del proceso")
     public ComparticionResponse comparticion(@PathVariable Long id,
@@ -98,6 +113,10 @@ public class ProcesoController {
     }
 
     // PUT http://localhost:8090/api/v1/procesos/{id}/comparticion
+    /**
+     * Comparte el proceso con otras empresas por NIT, o deja de compartirlo (200). Solo el
+     * administrador de la empresa dueña. La lista enviada reemplaza a la anterior.
+     */
     @PutMapping("/{id}/comparticion")
     @Operation(summary = "HU-23 · Compartir proceso con otras empresas",
             description = "Por NIT y en solo lectura. Solo el administrador de la empresa propietaria")
@@ -107,6 +126,7 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/{id}
+    /** Consulta un proceso por id (200). Responde 404 si no existe o no es de la empresa ni está compartido con ella. */
     @GetMapping("/{id}")
     @Operation(summary = "HU-07 · Consultar un proceso")
     @ApiResponse(responseCode = "404", description = "No existe o es de otra empresa")
@@ -116,6 +136,10 @@ public class ProcesoController {
     }
 
     // POST http://localhost:8090/api/v1/procesos
+    /**
+     * Crea un proceso en BORRADOR con el pool de la empresa (administrador o editor). Devuelve
+     * 201 Created con la cabecera Location, o 409 si el nombre ya existe en la empresa.
+     */
     @PostMapping
     @Operation(summary = "HU-04 · Crear proceso", description = "Nace en BORRADOR con el pool de la empresa. Administrador o editor")
     @ApiResponse(responseCode = "201", description = "Proceso creado")
@@ -127,6 +151,10 @@ public class ProcesoController {
     }
 
     // PUT http://localhost:8090/api/v1/procesos/{id}
+    /**
+     * Edita nombre, descripción, categoría y estado (200, administrador o editor). Responde 409 si
+     * el nombre se repite o si la versión enviada está desactualizada (otro usuario editó antes).
+     */
     @PutMapping("/{id}")
     @Operation(summary = "HU-05 · Editar proceso", description = "Nombre, descripción, categoría y estado. Administrador o editor")
     @ApiResponse(responseCode = "409", description = "Nombre repetido o versión desactualizada")
@@ -136,6 +164,7 @@ public class ProcesoController {
     }
 
     // DELETE http://localhost:8090/api/v1/procesos/{id}
+    /** Elimina lógicamente el proceso (solo administrador). Devuelve 204 (sin contenido); el diagrama se conserva. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "HU-06 · Eliminar proceso", description = "Eliminación lógica: pasa a inactivo. Solo administrador")
@@ -145,6 +174,10 @@ public class ProcesoController {
     }
 
     // GET http://localhost:8090/api/v1/procesos/{id}/historial
+    /**
+     * Devuelve (200) el historial de cambios del proceso, paginado y con lo más reciente primero
+     * (por defecto 20 por página, ordenado por fecha e id descendente).
+     */
     @GetMapping("/{id}/historial")
     @Operation(summary = "HU-07 · Historial de cambios del proceso", description = "Usuario, fecha y detalle de cada cambio")
     public PageResponse<HistorialResponse> historial(

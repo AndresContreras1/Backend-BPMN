@@ -44,11 +44,17 @@ import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
 import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
 
+/**
+ * Pruebas unitarias de ProcesoServiceImpl (crear, actualizar, publicar, eliminar, listar y resumen de procesos).
+ * Con @ExtendWith(MockitoExtension.class) activa Mockito; @Mock crea dobles de las dependencias y @InjectMocks crea el servicio real con ellos.
+ */
 @ExtendWith(MockitoExtension.class)
 class ProcesoServiceImplTest {
 
+    // Empresa con la que se ejecutan los casos.
     private static final Long EMPRESA = 1L;
 
+    // Dobles de las dependencias (repositorios, empresa, historial y validador del diagrama).
     @Mock
     private ProcesoRepository procesoRepository;
 
@@ -64,9 +70,11 @@ class ProcesoServiceImplTest {
     @Mock
     private ValidadorDeProcesoService validador;
 
+    // Objeto bajo prueba.
     @InjectMocks
     private ProcesoServiceImpl procesoService;
 
+    // Auxiliar: proceso "Vacaciones" en BORRADOR, versión 0, de la empresa 1.
     private static Proceso vacaciones() {
         Proceso p = Proceso.builder().id(5L).nombre("Vacaciones").descripcion("Desc").categoria("TH")
                 .estado(EstadoProceso.BORRADOR).version(0L).build();
@@ -74,8 +82,11 @@ class ProcesoServiceImplTest {
         return p;
     }
 
+    // Escenario: crear un proceso (nombre y categoría con espacios, descripción en blanco).
+    // Esperado: nace en BORRADOR, se crea su pool propietario con el nombre de la empresa y se registra en el historial.
     @Test
     void ProcesoService_crear_NaceEnBorradorConPoolDeLaEmpresaEHistorial() {
+        // Preparar: nombre libre; save asigna el id 5; la empresa se llama Facimus.
         when(procesoRepository.existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrue("Vacaciones", EMPRESA)).thenReturn(false);
         when(procesoRepository.save(any(Proceso.class))).thenAnswer(inv -> {
             Proceso p = inv.getArgument(0);
@@ -84,22 +95,28 @@ class ProcesoServiceImplTest {
         });
         when(empresaService.obtenerEntidad(EMPRESA)).thenReturn(Empresa.builder().id(EMPRESA).nombre("Facimus").build());
 
+        // Actuar: crear el proceso.
         ProcesoResponse creado = procesoService.crear(new ProcesoRequest(" Vacaciones ", "  ", " TH "), EMPRESA);
 
+        // Comprobar la respuesta: normalizada y marcada como propio.
         assertThat(creado.estado()).isEqualTo(EstadoProceso.BORRADOR);
         assertThat(creado.nombre()).isEqualTo("Vacaciones");
         assertThat(creado.descripcion()).isNull();
         assertThat(creado.propio()).isTrue();
+        // Se captura el pool guardado para revisar tipo, nombre, empresa y que no sea caja negra.
         ArgumentCaptor<Pool> pool = ArgumentCaptor.forClass(Pool.class);
         verify(poolRepository).save(pool.capture());
         assertThat(pool.getValue().getTipo()).isEqualTo(TipoPool.PROPIETARIO);
         assertThat(pool.getValue().getNombre()).isEqualTo("Facimus");
         assertThat(pool.getValue().getEmpresaId()).isEqualTo(EMPRESA);
         assertThat(pool.getValue().isCajaNegra()).isFalse();
+        // Comprobar: se registró la creación en el historial.
         verify(historialService).registrar(any(Proceso.class), eq(TipoCambio.CREACION), eq(ElementoHistorial.PROCESO),
                 eq(5L), anyString());
     }
 
+    // Escenario: ya existe un proceso activo con ese nombre.
+    // Esperado: ReglaDeNegocioException (409) y no se guarda proceso ni pool.
     @Test
     void ProcesoService_crear_NombreRepetidoEnLaEmpresaLanza409SinGuardar() {
         when(procesoRepository.existsByNombreIgnoreCaseAndEmpresaIdAndActivoTrue("Vacaciones", EMPRESA)).thenReturn(true);
@@ -110,19 +127,26 @@ class ProcesoServiceImplTest {
         verify(poolRepository, never()).save(any());
     }
 
+    // Escenario: renombrar un proceso.
+    // Esperado: el historial incluye el valor anterior y el nuevo.
     @Test
     void ProcesoService_actualizar_RegistraLosCambiosConValorAnteriorYNuevo() {
+        // Preparar: el proceso existe en la empresa.
         Proceso proceso = vacaciones();
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(proceso));
 
+        // Actuar: cambiar el nombre.
         procesoService.actualizar(5L, new ProcesoActualizacionRequest("Vacaciones 2026", "Desc", "TH",
                 EstadoProceso.BORRADOR, null), EMPRESA);
 
+        // Comprobar: el texto del cambio contiene nombre: 'antes' → 'después'.
         verify(historialService).registrar(eq(proceso), eq(TipoCambio.EDICION), eq(ElementoHistorial.PROCESO), eq(5L),
                 contains("nombre: 'Vacaciones' → 'Vacaciones 2026'"));
         assertThat(proceso.getNombre()).isEqualTo("Vacaciones 2026");
     }
 
+    // Escenario: pasar de BORRADOR a PUBLICADO.
+    // Esperado: se registra como cambio de estado y se valida la coherencia del diagrama.
     @Test
     void ProcesoService_actualizar_CambioDeEstadoSeRegistraComoCambioDeEstado() {
         Proceso proceso = vacaciones();
@@ -131,15 +155,20 @@ class ProcesoServiceImplTest {
         procesoService.actualizar(5L, new ProcesoActualizacionRequest("Vacaciones", "Desc", "TH",
                 EstadoProceso.PUBLICADO, 0L), EMPRESA);
 
+        // Comprobar: tipo de cambio CAMBIO_ESTADO con el detalle del estado.
         verify(historialService).registrar(eq(proceso), eq(TipoCambio.CAMBIO_ESTADO), eq(ElementoHistorial.PROCESO),
                 eq(5L), contains("estado: 'BORRADOR' → 'PUBLICADO'"));
+        // Comprobar: se llamó al validador antes de publicar.
         verify(validador).exigirCoherenciaParaPublicar(proceso);
     }
 
+    // Escenario: publicar un proceso cuyo diagrama no es coherente.
+    // Esperado: la excepción del validador se propaga y no se registra nada en el historial.
     @Test
     void ProcesoService_publicar_DiagramaIncoherenteNoSePublicaNiSeRegistra() {
         Proceso proceso = vacaciones();
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(proceso));
+        // doThrow...when: configura que el validador lance la excepción (forma usada con métodos void).
         org.mockito.Mockito.doThrow(new ReglaDeNegocioException("No se puede publicar", List.of("Sin inicio")))
                 .when(validador).exigirCoherenciaParaPublicar(proceso);
 
@@ -148,6 +177,8 @@ class ProcesoServiceImplTest {
         verify(historialService, never()).registrar(any(), any(), any(), any(), anyString());
     }
 
+    // Escenario: volver de PUBLICADO a BORRADOR.
+    // Esperado: no se valida el diagrama.
     @Test
     void ProcesoService_volverABorrador_NoValidaElDiagrama() {
         Proceso proceso = vacaciones();
@@ -160,6 +191,8 @@ class ProcesoServiceImplTest {
         verify(validador, never()).exigirCoherenciaParaPublicar(any());
     }
 
+    // Escenario: actualizar con los mismos valores.
+    // Esperado: no se escribe nada en el historial.
     @Test
     void ProcesoService_actualizar_SinCambiosNoEscribeHistorial() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(vacaciones()));
@@ -170,6 +203,8 @@ class ProcesoServiceImplTest {
         verify(historialService, never()).registrar(any(), any(), any(), any(), anyString());
     }
 
+    // Escenario: el cliente envía una versión (7) distinta de la actual (0).
+    // Esperado: ObjectOptimisticLockingFailureException (bloqueo optimista, otro usuario ya modificó).
     @Test
     void ProcesoService_actualizar_VersionDesactualizadaLanzaConflicto() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(vacaciones()));
@@ -179,6 +214,8 @@ class ProcesoServiceImplTest {
                 .isInstanceOf(ObjectOptimisticLockingFailureException.class);
     }
 
+    // Escenario: renombrar con un nombre que ya usa otro proceso activo.
+    // Esperado: ReglaDeNegocioException (409).
     @Test
     void ProcesoService_actualizar_NombreDeOtroProcesoActivoLanza409() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.of(vacaciones()));
@@ -190,6 +227,8 @@ class ProcesoServiceImplTest {
                 .isInstanceOf(ReglaDeNegocioException.class);
     }
 
+    // Escenario: eliminar un proceso.
+    // Esperado: borrado lógico (activo=false), sin delete físico, y queda en el historial.
     @Test
     void ProcesoService_eliminar_EsLogicoYQuedaEnElHistorial() {
         Proceso proceso = vacaciones();
@@ -203,6 +242,8 @@ class ProcesoServiceImplTest {
                 eq(5L), anyString());
     }
 
+    // Escenario: eliminar un proceso inexistente, de otra empresa o ya eliminado.
+    // Esperado: NotFoundException (404).
     @Test
     void ProcesoService_eliminar_DeOtraEmpresaOYaEliminadoEs404() {
         when(procesoRepository.findByIdAndEmpresaIdAndActivoTrue(5L, EMPRESA)).thenReturn(Optional.empty());
@@ -210,6 +251,8 @@ class ProcesoServiceImplTest {
         assertThatThrownBy(() -> procesoService.eliminar(5L, EMPRESA)).isInstanceOf(NotFoundException.class);
     }
 
+    // Escenario: consultar un proceso eliminado.
+    // Esperado: se puede leer y viene con activo=false.
     @Test
     void ProcesoService_obtener_InactivoSePuedeConsultar() {
         Proceso inactivo = vacaciones();
@@ -219,9 +262,12 @@ class ProcesoServiceImplTest {
         assertThat(procesoService.obtener(5L, EMPRESA).activo()).isFalse();
     }
 
+    // Escenario: listar sin filtros y con un orden no permitido.
+    // Esperado: los filtros nulos se tratan como vacíos, el orden lleva id de desempate y un campo no permitido lanza ParametroInvalidoException.
     @Test
     void ProcesoService_listar_NormalizaFiltrosVaciosValidaElOrdenYDesempataPorId() {
         PageRequest pagina = PageRequest.of(0, 10, Sort.by("nombre"));
+        // El repositorio solo responde si recibe exactamente el orden con id añadido.
         PageRequest conDesempate = PageRequest.of(0, 10, Sort.by("nombre").and(Sort.by("id")));
         when(procesoRepository.buscar(EMPRESA, "", null, "", true, conDesempate))
                 .thenReturn(new PageImpl<>(List.of(vacaciones()), pagina, 1));
@@ -229,10 +275,13 @@ class ProcesoServiceImplTest {
         assertThat(procesoService.listar(EMPRESA, new FiltroProceso(null, null, null, true), pagina).totalElements())
                 .isEqualTo(1);
 
+        // Orden por empresaId (no permitido): debe rechazarse.
         assertThatThrownBy(() -> procesoService.listar(EMPRESA, new FiltroProceso(null, null, null, true),
                 PageRequest.of(0, 10, Sort.by("empresaId")))).isInstanceOf(ParametroInvalidoException.class);
     }
 
+    // Escenario: calcular indicadores del inicio.
+    // Esperado: total = borradores + publicados (5), más eliminados y compartidos.
     @Test
     void ProcesoService_resumen_SumaLosActivosPorEstadoYAgregaEliminadosYCompartidos() {
         when(procesoRepository.contarPorEstado(EMPRESA, EstadoProceso.BORRADOR)).thenReturn(3L);
@@ -243,6 +292,8 @@ class ProcesoServiceImplTest {
         assertThat(procesoService.resumen(EMPRESA)).isEqualTo(new ResumenProcesosResponse(5, 3, 2, 1, 4));
     }
 
+    // Escenario: pedir el historial ordenado por un campo no permitido.
+    // Esperado: ParametroInvalidoException (400).
     @Test
     void ProcesoService_historial_OrdenNoPermitidoLanza400() {
         assertThatThrownBy(() -> procesoService.historial(5L, EMPRESA, PageRequest.of(0, 10, Sort.by("usuarioId"))))

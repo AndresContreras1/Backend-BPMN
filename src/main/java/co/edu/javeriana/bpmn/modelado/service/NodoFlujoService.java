@@ -8,7 +8,10 @@ import co.edu.javeriana.bpmn.modelado.dto.ImpactoResponse;
 import co.edu.javeriana.bpmn.modelado.entity.NodoFlujo;
 import co.edu.javeriana.bpmn.modelado.entity.TipoNodo;
 
-/** Operaciones comunes a actividades, gateways y eventos. */
+/**
+ * Operaciones comunes a actividades, gateways y eventos.
+ * Los tres son "nodos de flujo", asi que buscar, medir impacto y eliminar se hace aqui una sola vez.
+ */
 public interface NodoFlujoService {
 
     /** Puerta de escritura: nodo activo de un pool y un proceso activos de la empresa, del tipo indicado. */

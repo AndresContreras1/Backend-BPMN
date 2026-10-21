@@ -7,7 +7,14 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** HU-14 y HU-15: tipo de gateway (símbolo del rombo), nombre opcional, lane y posición. */
+/**
+ * HU-14 y HU-15: tipo de gateway (símbolo del rombo), nombre opcional, lane y posición.
+ * @param nombre nombre opcional, máximo 120 caracteres
+ * @param tipoGateway EXCLUSIVO, PARALELO o INCLUSIVO, obligatorio
+ * @param laneId lane destino; opcional al editar
+ * @param posX posición horizontal en el lienzo, entre 0 y 10000
+ * @param posY posición vertical en el lienzo, entre 0 y 10000
+ */
 public record GatewayRequest(
         @Schema(example = "¿Aprobada?")
         @Size(max = 120, message = "El nombre admite máximo 120 caracteres")

@@ -19,8 +19,11 @@ import org.junit.jupiter.api.Test;
 import co.edu.javeriana.bpmn.soporte.IntegracionBase;
 
 /** HU-23 y HU-25 a HU-28 de punta a punta: colaboración entre pools, correlación y compartición. */
+// Suite de integración de mensajes entre pools, notificaciones externas, correlación y compartición de procesos
+// (aplicación completa + MockMvc + JWT real). Hereda de IntegracionBase, que da el cliente api y limpia la base tras cada prueba.
 class MensajesYCompartirIT extends IntegracionBase {
 
+    // Tokens de las empresas A (admin, editor, lector) y B (adminB), y los ids del proceso, sus pools y lanes.
     private String admin;
     private String editor;
     private String lector;
@@ -32,6 +35,7 @@ class MensajesYCompartirIT extends IntegracionBase {
     private long laneAnalista;
     private long laneVendedor;
 
+    // Antes de cada prueba: dos empresas, un proceso "Compras" con tres pools (empresa, proveedor y servicio de correo como caja negra) y una lane en cada pool participante.
     @BeforeEach
     void datos() throws Exception {
         admin = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
@@ -46,11 +50,13 @@ class MensajesYCompartirIT extends IntegracionBase {
         laneVendedor = lane(proveedor, "Vendedor");
     }
 
+    // Auxiliar: crea un rol y una lane que lo usa en el pool dado.
     private long lane(long pool, String rol) throws Exception {
         long idRol = api.id(api.post(admin, "/api/v1/roles-proceso", Map.of("nombre", rol)), "id");
         return api.id(api.post(editor, "/api/v1/pools/{id}/lanes", Map.of("rolProcesoId", idRol), pool), "id");
     }
 
+    // Auxiliar: arma el cuerpo de un mensaje de envío (throw) con dos campos hacia el pool destino. Se usa HashMap para poder modificar el cuerpo en cada prueba.
     private Map<String, Object> throwA(String nombre, long destino) {
         Map<String, Object> cuerpo = new HashMap<>();
         cuerpo.put("poolId", poolEmpresa);
@@ -63,6 +69,7 @@ class MensajesYCompartirIT extends IntegracionBase {
         return cuerpo;
     }
 
+    // Auxiliar: arma el cuerpo de un mensaje de recepción (catch) en el pool del proveedor.
     private Map<String, Object> catchProveedor(String nombre, String variante) {
         Map<String, Object> cuerpo = new HashMap<>();
         cuerpo.put("poolId", proveedor);
@@ -72,12 +79,15 @@ class MensajesYCompartirIT extends IntegracionBase {
         return cuerpo;
     }
 
+    // Auxiliar: atajo para leer un id de la respuesta.
     private long id(org.springframework.test.web.servlet.ResultActions r, String campo) throws Exception {
         return api.id(r, campo);
     }
 
     // ---------- HU-25 Message Throw ----------
 
+    // Escenario: crear un mensaje de envío hacia el proveedor sin receptor.
+    // Esperado: 201, dirección ENVIO, nodo MESSAGE_THROW, campos, y solo un aviso de mensaje sin receptor.
     @Test
     void HU25_throwHaciaOtroPool_ConContenidoYAvisoSiNoHayReceptor() throws Exception {
         api.post(editor, "/api/v1/procesos/{id}/mensajes/throw", throwA("OrdenDeCompra", proveedor), proceso)
@@ -92,6 +102,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$.advertencias[0].severidad").value("AVISO"));
     }
 
+    // Escenario: crear el envío y luego una recepción con el mismo nombre (en minúscula) en el destino.
+    // Esperado: el envío se enlaza al catch y desaparece el aviso.
     @Test
     void HU25_conCatchHomonimoEnElDestino_ElFlujoLlegaAlCatchYNoHayAviso() throws Exception {
         long envio = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/throw", throwA("OrdenDeCompra", proveedor), proceso), "mensaje.id");
@@ -105,6 +117,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$.mensajes[?(@.direccion == 'ENVIO')].nodoDestinoId", contains((int) recepcion)));
     }
 
+    // Escenario: mensajes inválidos (a su propio pool, a un pool de otro proceso o empresa, variante INICIO en un envío, desde caja negra, campos repetidos o con tipo inexistente) y un lector.
+    // Esperado: 409, 409, 404, 409, 409, 409, 400 y 403.
     @Test
     void HU25_reglasDelFlujoDeMensaje() throws Exception {
         long otroProceso = api.id(api.post(editor, "/api/v1/procesos", Map.of("nombre", "Otro", "categoria", "X")), "id");
@@ -135,6 +149,8 @@ class MensajesYCompartirIT extends IntegracionBase {
         api.get(lector, "/api/v1/procesos/{id}/mensajes", proceso).andExpect(jsonPath("$", empty()));
     }
 
+    // Escenario: unir con un arco un envío y una recepción de pools distintos.
+    // Esperado: 409; entre pools se usa un mensaje, no un arco.
     @Test
     void HU25_unArcoNoReemplazaAlMensaje_NoCruzaPools() throws Exception {
         long envio = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/throw", throwA("OrdenDeCompra", proveedor), proceso), "mensaje.nodo.id");
@@ -146,6 +162,7 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     // ---------- HU-26 Notificación externa ----------
 
+    // Auxiliar: arma el cuerpo de una notificación a un sistema externo (caja negra).
     private Map<String, Object> externo(String elemento, String politica) {
         Map<String, Object> cuerpo = new HashMap<>();
         cuerpo.put("poolId", poolEmpresa);
@@ -160,6 +177,8 @@ class MensajesYCompartirIT extends IntegracionBase {
         return cuerpo;
     }
 
+    // Escenario: notificación al sistema externo como evento y como tarea de envío.
+    // Esperado: 201; se guardan destino, momento y política de fallo; el nodo es evento o actividad ENVIO; no hay aviso de falta de receptor.
     @Test
     void HU26_notificacionAlSistemaExternoDeCajaNegra_DocumentaDestinoDatosMomentoYFallo() throws Exception {
         api.post(editor, "/api/v1/procesos/{id}/mensajes/externos", externo("EVENTO", "CONTINUAR"), proceso)
@@ -180,6 +199,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$.mensaje.nodo.nombre").value("Enviar correo de aprobación"));
     }
 
+    // Escenario: destino que no es caja negra, política de fallo mal usada, sin tipo de destino, tarea sin nombre y actividad de manejo en otro pool.
+    // Esperado: 409, 400, 400, 400 y 409.
     @Test
     void HU26_reglasDeLaNotificacionExterna() throws Exception {
         Map<String, Object> aParticipante = externo("EVENTO", "CONTINUAR");
@@ -202,6 +223,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(status().isConflict());
     }
 
+    // Escenario: política DERIVAR_A_ACTIVIDAD con una actividad de manejo.
+    // Esperado: se guarda; esa actividad no se puede eliminar y el pool destino no deja de ser caja negra ni se elimina (409).
     @Test
     void HU26_derivarAActividad_LaActividadDeManejoNoSeEliminaYElDestinoSigueSiendoCajaNegra() throws Exception {
         long manejo = id(api.post(editor, "/api/v1/lanes/{id}/actividades",
@@ -222,6 +245,8 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     // ---------- HU-27 Message Catch ----------
 
+    // Escenario: recepción de inicio sin emisor.
+    // Esperado: se crea con un error CATCH_SIN_EMISOR; al marcarla como origen externo el error desaparece.
     @Test
     void HU27_catchSinEmisorEsError_HastaMarcarloComoOrigenExterno() throws Exception {
         long catchId = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/catch", catchProveedor("PagoRecibido", "INICIO"), proceso)
@@ -237,6 +262,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$.advertencias", empty()));
     }
 
+    // Escenario: catch intermedio con campos y actividades que lo usan, variante FIN inválida y actividad de otro proceso.
+    // Esperado: 201 con aviso de correlación faltante; 409 y 409.
     @Test
     void HU27_variantesYDatosEsperados() throws Exception {
         long revisar = id(api.post(editor, "/api/v1/lanes/{id}/actividades",
@@ -261,6 +288,8 @@ class MensajesYCompartirIT extends IntegracionBase {
         api.post(editor, "/api/v1/procesos/{id}/mensajes/catch", ajena, proceso).andExpect(status().isConflict());
     }
 
+    // Escenario: arco entrante a un catch de inicio y arco saliente.
+    // Esperado: el entrante da 409; el saliente 201.
     @Test
     void HU27_catchDeInicioNoAdmiteArcosEntrantes() throws Exception {
         long catchNodo = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/catch", catchProveedor("Pedido", "INICIO"), proceso), "mensaje.nodo.id");
@@ -275,6 +304,8 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     // ---------- HU-28 Correlación ----------
 
+    // Escenario: se define la clave de correlación en el envío.
+    // Esperado: se aplica también a la recepción homónima, el historial lo registra y una clave en blanco da 400.
     @Test
     void HU28_laClaveSeAplicaDeFormaCoherenteAlThrowYAlCatch() throws Exception {
         long envio = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/throw", throwA("OrdenDeCompra", proveedor), proceso), "mensaje.id");
@@ -293,6 +324,8 @@ class MensajesYCompartirIT extends IntegracionBase {
         api.put(editor, "/api/v1/mensajes/{id}/correlacion", Map.of("claveCorrelacion", " "), envio).andExpect(status().isBadRequest());
     }
 
+    // Escenario: claves distintas en el envío y la recepción.
+    // Esperado: la validación reporta CORRELACION_INCOHERENTE.
     @Test
     void HU28_claveDistintaEnThrowYCatch_EsIncoherente() throws Exception {
         Map<String, Object> envio = throwA("OrdenDeCompra", proveedor);
@@ -306,6 +339,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$[*].codigo", hasItem("CORRELACION_INCOHERENTE")));
     }
 
+    // Escenario: dos envíos distintos con el mismo nombre y clave.
+    // Esperado: el segundo avisa CORRELACION_AMBIGUA.
     @Test
     void HU28_dosMensajesDistintosConMismoNombreYClave_SonAmbiguos() throws Exception {
         long laneAuditor = lane(poolEmpresa, "Auditor");
@@ -321,6 +356,8 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     // ---------- Colaboración completa ----------
 
+    // Escenario: se arma un proceso con dos pools unidos por un mensaje, cada uno con su inicio, actividad y fin.
+    // Esperado: validación vacía, se puede publicar y, publicado, borrar el catch se rechaza (409).
     @Test
     void Colaboracion_procesoConDosPoolsYMensajes_SePublica() throws Exception {
         long inicioA = id(api.post(editor, "/api/v1/pools/{id}/eventos", Map.of("tipo", "INICIO", "laneId", laneAnalista), poolEmpresa), "id");
@@ -339,11 +376,14 @@ class MensajesYCompartirIT extends IntegracionBase {
         api.put(editor, "/api/v1/procesos/{id}", Map.of("nombre", "Compras", "categoria", "Compras", "estado", "PUBLICADO"), proceso)
                 .andExpect(status().isOk());
 
+        // Comprobar: con el proceso publicado, una eliminación que lo deje incoherente se rechaza.
         // Publicado: borrar el catch dejaría el throw sin receptor y al proveedor sin inicio
         long mensajeCatch = api.id(api.get(editor, "/api/v1/procesos/{id}/mensajes", proceso), "1.id");
         api.delete(admin, "/api/v1/mensajes/{id}", mensajeCatch).andExpect(status().isConflict());
     }
 
+    // Escenario: la empresa B intenta leer, editar y borrar un mensaje de A; luego editar sin origen válido y eliminar con distintos roles.
+    // Esperado: 404 desde B; 409 en la edición inválida; el editor recibe 403 y el admin 204; el diagrama queda sin mensajes ni nodos.
     @Test
     void Mensajes_eliminarYAislamiento() throws Exception {
         long envio = id(api.post(editor, "/api/v1/procesos/{id}/mensajes/throw", throwA("OrdenDeCompra", proveedor), proceso), "mensaje.id");
@@ -365,6 +405,8 @@ class MensajesYCompartirIT extends IntegracionBase {
 
     // ---------- HU-23 Compartir ----------
 
+    // Escenario: el admin comparte el proceso por NIT con la empresa B.
+    // Esperado: B lo ve en solo lectura (lista de compartidos, ficha y diagrama) pero no su historial ni su configuración, no puede escribir nada (404) y no lo ve entre sus procesos propios; el historial de A registra la compartición.
     @Test
     void HU23_compartidoConOtraEmpresa_SoloLectura() throws Exception {
         api.put(admin, "/api/v1/procesos/{id}/comparticion", Map.of("compartido", true, "nitsEmpresas", List.of("800333444-5")), proceso)
@@ -401,6 +443,8 @@ class MensajesYCompartirIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[0].detalle", containsString("Empresa B (800333444-5)")));
     }
 
+    // Escenario: sin compartir, B no ve el proceso; se comparte y lo ve; se deja de compartir.
+    // Esperado: 404, 200 y de nuevo 404 con la lista de compartidos vacía.
     @Test
     void HU23_porDefectoNoSeComparte_YDejarDeCompartirRetiraElAcceso() throws Exception {
         api.get(adminB, "/api/v1/procesos/{id}", proceso).andExpect(status().isNotFound());
@@ -415,6 +459,8 @@ class MensajesYCompartirIT extends IntegracionBase {
         api.get(adminB, "/api/v1/procesos/compartidos").andExpect(jsonPath("$.totalElements").value(0));
     }
 
+    // Escenario: un editor, un NIT desconocido, el NIT propio, sin lista de NIT, un NIT con formato inválido, una tercera empresa y un proceso eliminado.
+    // Esperado: 403, 404, 409, 409, 400; la empresa C no lo ve (404) y, eliminado, B tampoco.
     @Test
     void HU23_reglasDeComparticion() throws Exception {
         String adminC = api.registrarEmpresaYEntrar("Empresa C", "811555666-7", "admin@c.com");

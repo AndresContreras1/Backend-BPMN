@@ -21,18 +21,31 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
+/**
+ * Controlador de autenticación (HU-03). Solo recibe la petición HTTP y delega en AuthService;
+ * la lógica no vive aquí.
+ */
+// @RestController: devuelve JSON. @RequestMapping: prefijo de todas las rutas de esta clase.
+// @Tag: agrupa los endpoints en la documentación Swagger.
 @RestController
 @RequestMapping("/api/v1/auth")
 @Tag(name = "HU-03 · Inicio de sesión", description = "Autenticación con correo y contraseña; emite el JWT")
 public class AuthController {
 
+    /** Servicio con la lógica de autenticación. */
     private final AuthService authService;
 
+    /** Constructor: Spring inyecta el servicio automáticamente. */
     public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
     // POST http://localhost:8090/api/v1/auth/login
+    /**
+     * Inicia sesión con correo y contraseña. Devuelve 200 con el token JWT, o 401 si las
+     * credenciales son incorrectas. @SecurityRequirements vacío: este endpoint es público
+     * (no pide token). @Valid hace que se validen las anotaciones del LoginRequest (400 si fallan).
+     */
     @PostMapping("/login")
     @SecurityRequirements
     @Operation(summary = "HU-03 · Iniciar sesión")
@@ -43,6 +56,10 @@ public class AuthController {
     }
 
     // POST http://localhost:8090/api/v1/auth/logout
+    /**
+     * Cierra sesión. Devuelve 204 (sin contenido). No hace nada en el servidor porque la API no
+     * guarda sesiones: el cliente simplemente borra su token.
+     */
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "HU-03 · Cerrar sesión",
@@ -52,6 +69,10 @@ public class AuthController {
     }
 
     // GET http://localhost:8090/api/v1/auth/yo
+    /**
+     * Devuelve el usuario autenticado y su empresa (200). Los ids salen del token (principal),
+     * no de lo que envíe el cliente. @Parameter(hidden = true) oculta ese parámetro en Swagger.
+     */
     @GetMapping("/yo")
     @Operation(summary = "HU-03 · Usuario autenticado y su empresa")
     public UsuarioResumen yo(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {

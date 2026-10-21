@@ -17,20 +17,24 @@ import co.edu.javeriana.bpmn.gestion.entity.Usuario;
  */
 public record ApiPrincipal(Long usuarioId, Long empresaId, String correo, RolAcceso rol) implements UserDetails {
 
+    /** Crea el principal a partir del usuario guardado en la base. */
     public static ApiPrincipal de(Usuario usuario) {
         return new ApiPrincipal(usuario.getId(), usuario.getEmpresaId(), usuario.getCorreo(), usuario.getRol());
     }
 
+    /** @return true si el rol de acceso es ADMINISTRADOR */
     public boolean esAdministrador() {
         return rol == RolAcceso.ADMINISTRADOR;
     }
 
+    /** Spring Security usa el nombre del rol como único permiso (ADMINISTRADOR, EDITOR o LECTOR). */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(rol.name()));
     }
 
     @Override
+    /** El nombre de usuario es el correo. */
     public String getUsername() {
         return correo;
     }

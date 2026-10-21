@@ -51,33 +51,42 @@ import lombok.ToString;
 @Builder
 public class Mensaje extends EntidadDeEmpresa {
 
+    /** Identificador de la fila; la base de datos lo genera sola (autoincremental). */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Proceso al que pertenece el mensaje. Se borra en cascada con el proceso. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "proceso_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Proceso proceso;
 
-    /** Evento de mensaje o tarea de envío que lo representa en el diagrama. */
+    /**
+     * Evento de mensaje o tarea de envío que lo representa en el diagrama.
+     * Relación uno a uno y unique: un nodo tiene a lo sumo un mensaje.
+     */
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "nodo_id", nullable = false, unique = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NodoFlujo nodo;
 
+    /** Si el nodo envía (ENVIO) o recibe (RECEPCION) el mensaje. */
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private DireccionMensaje direccion;
 
+    /** Nombre del mensaje (máximo 120 caracteres). */
     @Column(length = 120, nullable = false)
     private String nombre;
 
+    /** Pool al que se envía el mensaje. Es opcional (sin optional = false) porque un mensaje recibido de fuera no lo tiene. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pool_destino_id")
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Pool poolDestino;
 
+    /** HU-26: tipo de sistema externo notificado (correo, servicio web o cola). Opcional. */
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_destino", length = 20, nullable = true)
     private TipoDestinoExterno tipoDestino;
@@ -86,10 +95,12 @@ public class Mensaje extends EntidadDeEmpresa {
     @Column(length = 300, nullable = true)
     private String momento;
 
+    /** HU-26: qué hacer si falla la notificación externa. Opcional. */
     @Enumerated(EnumType.STRING)
     @Column(name = "politica_fallo", length = 30, nullable = true)
     private PoliticaFallo politicaFallo;
 
+    /** HU-26: actividad a la que se desvía el flujo cuando la política de fallo es DERIVAR_A_ACTIVIDAD. Opcional. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "actividad_manejo_error_id")
     @OnDelete(action = OnDeleteAction.CASCADE)
@@ -99,17 +110,21 @@ public class Mensaje extends EntidadDeEmpresa {
     @Column(name = "origen_externo", nullable = false)
     private boolean origenExterno;
 
+    /** HU-28: clave que dice a qué caso concreto corresponde el mensaje. Opcional. */
     @Column(name = "clave_correlacion", length = 120, nullable = true)
     private String claveCorrelacion;
 
+    /** HU-28: qué hacer si el mensaje no corresponde a ningún caso en espera. Opcional. */
     @Enumerated(EnumType.STRING)
     @Column(name = "accion_sin_caso", length = 30, nullable = true)
     private AccionSinCaso accionSinCaso;
 
+    /** Borrado lógico: en vez de borrar la fila se pone en false y deja de listarse. Por defecto nace activo. */
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;
 
+    /** Campos del contenido del mensaje. mappedBy: la clave foránea vive en CampoMensaje. Se borran en cascada con el mensaje. */
     @OneToMany(mappedBy = "mensaje")
     @OnDelete(action = OnDeleteAction.CASCADE)
     @Builder.Default

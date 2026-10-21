@@ -17,10 +17,12 @@ public class ApiAccessDeniedHandler implements AccessDeniedHandler {
 
     private final EscritorDeProblemDetail escritor;
 
+    // Se reutiliza el escritor para dar el mismo formato de error que el resto de la API.
     public ApiAccessDeniedHandler(EscritorDeProblemDetail escritor) {
         this.escritor = escritor;
     }
 
+    /** Spring Security llama a este método cuando se deniega el acceso; escribe la respuesta 403 directamente. */
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException accessDeniedException) throws IOException {

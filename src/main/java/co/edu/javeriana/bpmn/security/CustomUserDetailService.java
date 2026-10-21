@@ -19,17 +19,24 @@ import co.edu.javeriana.bpmn.gestion.repository.UsuarioRepository;
 @Service
 public class CustomUserDetailService implements UserDetailsService {
 
+    // Repositorio con el que se buscan los usuarios.
     private final UsuarioRepository usuarioRepository;
 
     public CustomUserDetailService(UsuarioRepository usuarioRepository) {
         this.usuarioRepository = usuarioRepository;
     }
 
+    /**
+     * Busca el usuario por correo sin distinguir mayúsculas.
+     * @throws UsernameNotFoundException si el correo no está registrado
+     */
     @Override
     public UserDetails loadUserByUsername(String correo) throws UsernameNotFoundException {
+        // 1. Se busca el usuario; si no existe se lanza el error de autenticación.
         Usuario usuario = usuarioRepository.findByCorreoIgnoreCase(correo)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
 
+        // 2. Se entrega a Spring Security el correo, la contraseña ya cifrada y el rol; un usuario inactivo se marca como deshabilitado.
         return User.withUsername(usuario.getCorreo())
                 .password(usuario.getPassword())
                 .authorities(usuario.getRol().name())

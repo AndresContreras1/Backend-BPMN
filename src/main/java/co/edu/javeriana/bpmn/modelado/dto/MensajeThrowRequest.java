@@ -14,6 +14,15 @@ import jakarta.validation.constraints.Size;
 /**
  * HU-25: evento de lanzamiento de mensaje (círculo con sobre relleno) en el pool de origen y
  * flujo de mensaje hacia el pool destino. INTERMEDIO continúa el flujo; FIN lo termina.
+ * @param poolId pool de origen, obligatorio
+ * @param laneId lane donde se ubica (opcional)
+ * @param nombre nombre del mensaje, obligatorio, máximo 120 caracteres
+ * @param variante INTERMEDIO o FIN, obligatoria
+ * @param poolDestinoId pool al que va el mensaje, obligatorio
+ * @param campos datos que lleva el mensaje
+ * @param claveCorrelacion clave de correlación opcional (HU-28), máximo 120 caracteres
+ * @param posX posición horizontal en el lienzo, entre 0 y 10000
+ * @param posY posición vertical en el lienzo, entre 0 y 10000
  */
 public record MensajeThrowRequest(
         @NotNull(message = "El pool de origen es obligatorio") Long poolId,

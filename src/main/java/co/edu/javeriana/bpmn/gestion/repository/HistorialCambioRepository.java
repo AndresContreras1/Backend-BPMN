@@ -11,9 +11,14 @@ import org.springframework.stereotype.Repository;
 import co.edu.javeriana.bpmn.gestion.entity.ElementoHistorial;
 import co.edu.javeriana.bpmn.gestion.entity.HistorialCambio;
 
+/** Acceso a datos del historial de cambios (trazabilidad). */
 @Repository
 public interface HistorialCambioRepository extends JpaRepository<HistorialCambio, Long> {
 
+    /**
+     * Historial paginado de un proceso. Filtra también por empresa para que nadie vea
+     * el historial de procesos de otra empresa.
+     */
     Page<HistorialCambio> findByProcesoIdAndEmpresaId(Long procesoId, Long empresaId, Pageable pageable);
 
     /** Named query HistorialCambio.listarPorElemento: cambios de un elemento concreto (por ejemplo, un rol). */

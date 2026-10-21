@@ -18,8 +18,10 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
         scheme = "bearer", bearerFormat = "JWT")
 public class OpenApiConfig {
 
+    /** Nombre del esquema de seguridad; los controladores lo referencian para marcar sus endpoints como protegidos. */
     public static final String ESQUEMA_SEGURIDAD = "bearerAuth";
 
+    /** Datos generales de la documentación (título, versión, descripción) y requisito de seguridad global. */
     @Bean
     OpenAPI apiInfo() {
         return new OpenAPI()
@@ -29,6 +31,7 @@ public class OpenApiConfig {
                         .description("Gestión multiempresa de procesos y modelado BPMN: empresas, usuarios, "
                                 + "procesos, roles de proceso, pools, lanes, actividades, gateways, arcos, "
                                 + "mensajes y correlación. El sistema modela y valida; no ejecuta procesos."))
+                // Por defecto todos los endpoints piden el token; Swagger UI lo envía como Authorization: Bearer.
                 .addSecurityItem(new SecurityRequirement().addList(ESQUEMA_SEGURIDAD));
     }
 }

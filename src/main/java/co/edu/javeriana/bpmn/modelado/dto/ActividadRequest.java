@@ -11,6 +11,12 @@ import jakarta.validation.constraints.Size;
 /**
  * HU-08 y HU-09: nombre, tipo, lane (rol responsable) y posición de la actividad.
  * Al crear, la lane viene en la ruta; al editar, en el cuerpo (cambiarla cambia el responsable).
+ * Cuerpo JSON de la petición; las anotaciones de validación (NotBlank, Size, Min, Max) las revisa Spring antes de llegar al servicio.
+ * @param nombre nombre de la actividad, obligatorio, máximo 120 caracteres
+ * @param tipoActividad tipo de task (tarea, usuario, manual...), obligatorio
+ * @param laneId lane destino; obligatoria al editar
+ * @param posX posición horizontal en el lienzo, entre 0 y 10000
+ * @param posY posición vertical en el lienzo, entre 0 y 10000
  */
 public record ActividadRequest(
         @Schema(example = "Radicar solicitud")

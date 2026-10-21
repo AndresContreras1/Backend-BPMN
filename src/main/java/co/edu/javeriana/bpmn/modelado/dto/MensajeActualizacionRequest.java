@@ -14,6 +14,18 @@ import jakarta.validation.constraints.Size;
 /**
  * Edición de un mensaje (HU-25 a HU-27). Los campos que no aplican a la dirección del mensaje
  * se rechazan; los nulos conservan el valor actual, salvo la lista de campos, que se reemplaza.
+ * @param nombre nombre del mensaje, obligatorio, máximo 120 caracteres
+ * @param variante INICIO, INTERMEDIO o FIN según el tipo de evento
+ * @param poolDestinoId pool destino (solo para envíos)
+ * @param tipoDestino tipo de sistema externo (solo para envíos externos)
+ * @param momento cuándo ocurre el envío, máximo 300 caracteres
+ * @param politicaFallo qué hacer si falla la notificación
+ * @param actividadManejoErrorId actividad de manejo de error
+ * @param origenExterno si el mensaje llega de fuera del diagrama (solo recepciones)
+ * @param campos nueva lista de campos; reemplaza la anterior
+ * @param actividadesQueUsanIds actividades que usan los datos recibidos
+ * @param posX nueva posición horizontal (opcional)
+ * @param posY nueva posición vertical (opcional)
  */
 public record MensajeActualizacionRequest(
         @NotBlank(message = "El nombre del mensaje es obligatorio")

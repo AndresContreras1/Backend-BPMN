@@ -19,15 +19,21 @@ import co.edu.javeriana.bpmn.soporte.IntegracionBase;
  * Ser administrador en la empresa A no da acceso a nada de la empresa B: cada recurso ajeno
  * responde 404 al leerlo, editarlo o borrarlo (un 403 confirmaría que existe).
  */
+// Suite de integración (aplicación completa + MockMvc + JWT real). Hereda de IntegracionBase, que limpia la base tras cada prueba.
+// Usa pruebas parametrizadas: la misma comprobación se repite con muchas rutas distintas.
 class AislamientoEntreEmpresasIT extends IntegracionBase {
 
+    // Ids de los recursos creados en la empresa B, por nombre (proceso, pool, lane...).
     private final Map<String, Long> recursosDeB = new HashMap<>();
+    // Token JWT del administrador de la empresa A, quien intentará acceder a lo de B.
     private String adminA;
 
+    // Antes de cada prueba: se crean dos empresas y en la B se arma un modelo completo (proceso, pools, lanes, rol, evento, actividad, gateway, arco y mensaje).
     @BeforeEach
     void dosEmpresas() throws Exception {
         adminA = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
         String adminB = api.registrarEmpresaYEntrar("Empresa B", "800333444-5", "admin@b.com");
+        // El mismo nombre en ambas empresas es válido: sus espacios son independientes.
         // Mismo nombre de proceso en las dos empresas (HU-01): los espacios son independientes
         api.post(adminA, "/api/v1/procesos", Map.of("nombre", "Vacaciones", "categoria", "TH"));
 
@@ -46,12 +52,14 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
         long usuario = api.id(api.get(adminB, "/api/v1/usuarios"), "content.0.id");
         long empresa = api.id(api.get(adminB, "/api/v1/empresas/actual"), "id");
 
+        // Se guardan todos los ids de B para usarlos en las pruebas.
         recursosDeB.putAll(Map.ofEntries(Map.entry("proceso", proceso), Map.entry("pool", pool), Map.entry("lane", laneCliente),
                 Map.entry("rol", rol), Map.entry("evento", evento), Map.entry("actividad", actividad),
                 Map.entry("gateway", gateway), Map.entry("arco", arco), Map.entry("mensaje", mensaje),
                 Map.entry("usuario", usuario), Map.entry("empresa", empresa)));
     }
 
+    // Fuente de datos de la prueba de lectura: pares (plantilla de URL, clave del recurso de B).
     static Stream<Arguments> lecturas() {
         return Stream.of(
                 arguments("/api/v1/procesos/%d", "proceso"),
@@ -81,6 +89,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/empresas/%d", "empresa"));
     }
 
+    // Fuente de datos de la prueba de borrado.
     static Stream<Arguments> borrados() {
         return Stream.of(
                 arguments("/api/v1/procesos/%d", "proceso"),
@@ -94,6 +103,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/mensajes/%d", "mensaje"));
     }
 
+    // Fuente de datos de la prueba de edición: incluye el cuerpo que se envía en el PUT.
     static Stream<Arguments> ediciones() {
         return Stream.of(
                 arguments("/api/v1/procesos/%d", "proceso", Map.of("nombre", "X", "categoria", "X", "estado", "BORRADOR")),
@@ -109,30 +119,41 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/usuarios/%d/rol", "usuario", Map.of("rol", "LECTOR")));
     }
 
+    // Escenario: el admin de A hace GET sobre recursos de B (una ejecución por ruta).
+    // Esperado: 404 en todos, no 403, para no confirmar que el recurso existe.
+    // @MethodSource indica el método que entrega los parámetros.
     @ParameterizedTest(name = "GET {0} de otra empresa responde 404")
     @MethodSource("lecturas")
     void noPuedoLeerRecursosDeOtraEmpresa(String plantilla, String clave) throws Exception {
+        // formatted reemplaza %d por el id del recurso de B.
         api.get(adminA, plantilla.formatted(recursosDeB.get(clave))).andExpect(status().isNotFound());
     }
 
+    // Escenario: el admin de A intenta borrar recursos de B.
+    // Esperado: 404 en todos.
     @ParameterizedTest(name = "DELETE {0} de otra empresa responde 404")
     @MethodSource("borrados")
     void noPuedoBorrarRecursosDeOtraEmpresa(String plantilla, String clave) throws Exception {
         api.delete(adminA, plantilla.formatted(recursosDeB.get(clave))).andExpect(status().isNotFound());
     }
 
+    // Escenario: el admin de A intenta editar recursos de B.
+    // Esperado: 404 en todos.
     @ParameterizedTest(name = "PUT {0} de otra empresa responde 404")
     @MethodSource("ediciones")
     void noPuedoEditarRecursosDeOtraEmpresa(String plantilla, String clave, Map<String, Object> cuerpo) throws Exception {
         api.put(adminA, plantilla.formatted(recursosDeB.get(clave)), cuerpo).andExpect(status().isNotFound());
     }
 
+    // Escenario: el admin de A intenta crear cosas dentro de recursos de B.
+    // Esperado: 404 en todos.
     @ParameterizedTest(name = "POST {0} dentro de otra empresa responde 404")
     @MethodSource("creacionesDentroDeB")
     void noPuedoCrearDentroDeRecursosDeOtraEmpresa(String plantilla, String clave, Map<String, Object> cuerpo) throws Exception {
         api.post(adminA, plantilla.formatted(recursosDeB.get(clave)), cuerpo).andExpect(status().isNotFound());
     }
 
+    // Fuente de datos: dónde crear (plantilla, recurso de B) y el cuerpo a enviar.
     static Stream<Arguments> creacionesDentroDeB() {
         return Stream.of(
                 arguments("/api/v1/procesos/%d/pools", "proceso", Map.of("nombre", "X", "tipo", "CLIENTE")),
@@ -143,9 +164,12 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/procesos/%d/mensajes/catch", "proceso", Map.of("poolId", 1, "nombre", "X", "variante", "INICIO")));
     }
 
+    // Escenario: crear un arco en un proceso propio pero con un id ajeno en el cuerpo (proceso, origen o destino de la empresa B).
+    // Esperado: 404; los ids del cuerpo también se validan por empresa.
     @ParameterizedTest(name = "Los ids del cuerpo también se resuelven por empresa: {1}")
     @MethodSource("idsAjenosEnElCuerpo")
     void losIdsDelCuerpoDeOtraEmpresaResponden404(String url, String descripcion, String campo) throws Exception {
+        // Preparar: se toma un proceso propio de A y se arma un cuerpo con ids de B; el campo indicado se reemplaza por el id ajeno.
         long procesoA = api.id(api.get(adminA, "/api/v1/procesos"), "content.0.id");
         Map<String, Object> cuerpo = new HashMap<>(Map.of("procesoId", procesoA, "origenId", recursosDeB.get("evento"),
                 "destinoId", recursosDeB.get("actividad")));
@@ -153,6 +177,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
         api.post(adminA, url, cuerpo).andExpect(status().isNotFound());
     }
 
+    // Fuente de datos: URL, descripción del caso y campo del cuerpo que lleva el id ajeno.
     static Stream<Arguments> idsAjenosEnElCuerpo() {
         return Stream.of(
                 arguments("/api/v1/arcos", "arco con proceso ajeno", "procesoId"),
@@ -160,6 +185,8 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/arcos", "arco desde actividad ajena", "origenId"));
     }
 
+    // Escenario: listar colecciones desde A.
+    // Esperado: el total solo cuenta lo propio (la empresa B no se mezcla).
     @ParameterizedTest(name = "Listado {0} solo trae lo propio")
     @MethodSource("listados")
     void losListadosSoloTraenLoDeMiEmpresa(String url, int esperados) throws Exception {
@@ -167,6 +194,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 .jsonPath("$.totalElements").value(esperados));
     }
 
+    // Fuente de datos: URL del listado y total esperado para la empresa A.
     static Stream<Arguments> listados() {
         return Stream.of(
                 arguments("/api/v1/procesos", 1),
@@ -175,6 +203,7 @@ class AislamientoEntreEmpresasIT extends IntegracionBase {
                 arguments("/api/v1/procesos/compartidos", 0));
     }
 
+    // Auxiliar sin uso: lista los nombres de recursos.
     @SuppressWarnings("unused")
     private static List<String> recursos() {
         return List.of("proceso", "pool", "lane", "rol", "evento", "actividad", "gateway", "arco", "mensaje", "usuario", "empresa");

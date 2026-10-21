@@ -6,7 +6,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** Campo del contenido del mensaje: los datos que se envían o se esperan y su tipo. */
+/**
+ * Campo del contenido del mensaje: los datos que se envían o se esperan y su tipo.
+ * @param nombre nombre del campo, obligatorio, máximo 60 caracteres
+ * @param tipoDato tipo de dato (TEXTO, NUMERO, DECIMAL, FECHA o BOOLEANO), obligatorio
+ */
 public record CampoRequest(
         @Schema(example = "numeroSolicitud")
         @NotBlank(message = "El nombre del campo es obligatorio")

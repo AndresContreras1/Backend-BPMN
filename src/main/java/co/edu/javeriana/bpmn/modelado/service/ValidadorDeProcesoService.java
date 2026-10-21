@@ -12,6 +12,7 @@ import co.edu.javeriana.bpmn.modelado.dto.Advertencia;
  */
 public interface ValidadorDeProcesoService {
 
+    /** Revisa el diagrama completo y devuelve todas las advertencias y errores encontrados. */
     List<Advertencia> revisar(Proceso proceso);
 
     /** Revisa el diagrama como quedaría sin esos nodos y arcos (para advertir antes de eliminar). */

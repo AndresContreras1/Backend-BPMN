@@ -38,6 +38,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    // Servicios y manejadores de error que se conectan en la cadena de filtros, más los valores leídos de application.properties.
     private final JwtService jwtService;
     private final CustomUserDetailService userDetailService;
     private final JwtAuthEntryPoint jwtAuthEntryPoint;
@@ -47,6 +48,7 @@ public class SecurityConfig {
     private final RateLimitFilter.Limite limiteLogin;
     private final RateLimitFilter.Limite limiteRegistro;
 
+    /** Los límites de intentos y los orígenes CORS vienen de las propiedades; los orígenes llegan separados por comas. */
     public SecurityConfig(JwtService jwtService, CustomUserDetailService userDetailService,
                           JwtAuthEntryPoint jwtAuthEntryPoint, ApiAccessDeniedHandler apiAccessDeniedHandler,
                           EscritorDeProblemDetail escritor,
@@ -78,19 +80,23 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** Cadena de filtros de la API. @Order(2): se evalúa después de la de H2. */
     @Bean
     @Order(2)
     SecurityFilterChain api(HttpSecurity http) throws Exception {
         http
+            // Sin CSRF (el token no va en cookie), con CORS, sin sesiones en el servidor.
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(requests -> requests
+                // Rutas públicas: registro de empresa, login, documentación y /error. Todo lo demás exige un token válido.
                 .requestMatchers(HttpMethod.POST, "/api/v1/empresas", "/api/v1/auth/login").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
             )
+            // Errores 401 y 403 de la cadena con el formato ProblemDetail de la API.
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint(jwtAuthEntryPoint)
                 .accessDeniedHandler(apiAccessDeniedHandler))
@@ -102,19 +108,23 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** Cifrado de contraseñas con BCrypt (lento a propósito y con sal). */
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    /** Gestor que valida correo y contraseña en el login. */
     @Bean
     AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
 
+    /** CORS: permite que el frontend (otro origen) llame a la API desde el navegador. */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
+        // Solo los orígenes de la propiedad app.cors.allowed-origins, métodos y headers imprescindibles.
         config.setAllowedOrigins(origenesPermitidos);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of(HttpHeaders.AUTHORIZATION, HttpHeaders.CONTENT_TYPE, HttpHeaders.ACCEPT));
@@ -122,6 +132,7 @@ public class SecurityConfig {
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // La configuración aplica solo a las rutas de la API.
         source.registerCorsConfiguration("/api/**", config);
         return source;
     }
