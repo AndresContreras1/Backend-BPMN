@@ -24,7 +24,9 @@ import co.edu.javeriana.bpmn.modelado.dto.PoolRequest;
 import co.edu.javeriana.bpmn.modelado.dto.PoolResponse;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
+import co.edu.javeriana.bpmn.modelado.entity.DireccionMensaje;
 import co.edu.javeriana.bpmn.modelado.repository.LaneRepository;
+import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
 import co.edu.javeriana.bpmn.modelado.service.PoolService;
@@ -37,6 +39,7 @@ public class PoolServiceImpl implements PoolService {
     private final PoolRepository poolRepository;
     private final LaneRepository laneRepository;
     private final NodoFlujoRepository nodoRepository;
+    private final MensajeRepository mensajeRepository;
     private final ProcesoService procesoService;
     private final RolProcesoService rolProcesoService;
     private final HistorialService historialService;
@@ -104,6 +107,10 @@ public class PoolServiceImpl implements PoolService {
             throw new ReglaDeNegocioException("El pool de la empresa propietaria no cambia de tipo y solo puede haber uno");
         }
         boolean cajaNegra = resolverCajaNegra(request);
+        if (!cajaNegra && pool.isCajaNegra() && mensajeRepository
+                .existsByPoolDestinoIdAndDireccionAndTipoDestinoNotNullAndActivoTrue(id, DireccionMensaje.ENVIO)) {
+            throw new ReglaDeNegocioException("El pool recibe notificaciones externas (HU-26): debe seguir siendo caja negra");
+        }
         if (cajaNegra && !pool.isCajaNegra() && tieneElementos(pool)) {
             throw new ReglaDeNegocioException("Un pool de caja negra no tiene elementos internos: retire primero sus lanes y elementos");
         }
@@ -143,6 +150,11 @@ public class PoolServiceImpl implements PoolService {
         }
         if (tieneElementos(pool)) {
             throw new ReglaDeNegocioException("El pool '" + pool.getNombre() + "' tiene lanes o elementos: elimínelos primero");
+        }
+        long mensajes = mensajeRepository.countByPoolDestinoIdAndActivoTrue(id);
+        if (mensajes > 0) {
+            throw new ReglaDeNegocioException("El pool '" + pool.getNombre() + "' es destino de " + mensajes
+                    + " mensaje(s): elimínelos o redirígalos primero");
         }
         pool.setActivo(false);
         historialService.registrar(pool.getProceso(), TipoCambio.ELIMINACION, ElementoHistorial.POOL, id,

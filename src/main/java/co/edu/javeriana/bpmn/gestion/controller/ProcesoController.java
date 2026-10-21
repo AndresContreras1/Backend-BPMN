@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.javeriana.bpmn.common.dto.PageResponse;
+import co.edu.javeriana.bpmn.gestion.dto.ComparticionResponse;
+import co.edu.javeriana.bpmn.gestion.dto.CompartirRequest;
+import co.edu.javeriana.bpmn.gestion.dto.ProcesoCompartidoResponse;
 import co.edu.javeriana.bpmn.gestion.dto.FiltroProceso;
 import co.edu.javeriana.bpmn.gestion.dto.HistorialResponse;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
@@ -66,6 +69,32 @@ public class ProcesoController {
     @Operation(summary = "HU-07 · Categorías en uso", description = "Para llenar el filtro por categoría")
     public List<String> categorias(@Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
         return procesoService.categorias(principal.empresaId());
+    }
+
+    // GET http://localhost:8090/api/v1/procesos/compartidos
+    @GetMapping("/compartidos")
+    @Operation(summary = "HU-23 · Procesos compartidos conmigo", description = "Solo lectura")
+    public PageResponse<ProcesoCompartidoResponse> compartidosConmigo(
+            @ParameterObject @PageableDefault(size = 10, sort = "nombre") Pageable pageable,
+            @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
+        return procesoService.compartidosConmigo(principal.empresaId(), pageable);
+    }
+
+    // GET http://localhost:8090/api/v1/procesos/{id}/compartir
+    @GetMapping("/{id}/compartir")
+    @Operation(summary = "HU-23 · Estado de compartición del proceso")
+    public ComparticionResponse comparticion(@PathVariable Long id,
+                                             @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
+        return procesoService.comparticion(id, principal.empresaId());
+    }
+
+    // PUT http://localhost:8090/api/v1/procesos/{id}/compartir
+    @PutMapping("/{id}/compartir")
+    @Operation(summary = "HU-23 · Compartir proceso con otras empresas",
+            description = "Por NIT y en solo lectura. Solo el administrador de la empresa propietaria")
+    public ComparticionResponse compartir(@PathVariable Long id, @Valid @RequestBody CompartirRequest request,
+                                          @Parameter(hidden = true) @AuthenticationPrincipal ApiPrincipal principal) {
+        return procesoService.compartir(id, request, principal.empresaId());
     }
 
     // GET http://localhost:8090/api/v1/procesos/{id}

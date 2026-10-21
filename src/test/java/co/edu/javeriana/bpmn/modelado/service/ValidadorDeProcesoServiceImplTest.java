@@ -23,6 +23,9 @@ import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
 import co.edu.javeriana.bpmn.modelado.dto.Advertencia;
 import co.edu.javeriana.bpmn.modelado.entity.Arco;
+import co.edu.javeriana.bpmn.modelado.entity.DireccionMensaje;
+import co.edu.javeriana.bpmn.modelado.entity.Mensaje;
+import co.edu.javeriana.bpmn.modelado.entity.VarianteEvento;
 import co.edu.javeriana.bpmn.modelado.entity.Lane;
 import co.edu.javeriana.bpmn.modelado.entity.NodoFlujo;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
@@ -30,6 +33,7 @@ import co.edu.javeriana.bpmn.modelado.entity.TipoGateway;
 import co.edu.javeriana.bpmn.modelado.entity.TipoNodo;
 import co.edu.javeriana.bpmn.modelado.entity.TipoPool;
 import co.edu.javeriana.bpmn.modelado.repository.ArcoRepository;
+import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
 import co.edu.javeriana.bpmn.modelado.service.impl.ValidadorDeProcesoServiceImpl;
@@ -47,6 +51,9 @@ class ValidadorDeProcesoServiceImplTest {
 
     @Mock
     private PoolRepository poolRepository;
+
+    @Mock
+    private MensajeRepository mensajeRepository;
 
     @InjectMocks
     private ValidadorDeProcesoServiceImpl validador;
@@ -225,11 +232,118 @@ class ValidadorDeProcesoServiceImplTest {
     }
 
     @Test
-    void Validador_poolCajaNegra_NoSeRevisa() {
+    void Validador_poolCajaNegraConElementos_Error() {
         pool.setCajaNegra(true);
         nodo(TipoNodo.ACTIVIDAD, "Interna");
 
-        assertThat(validador.revisar(proceso)).isEmpty();
+        assertThat(codigos()).containsExactly("CAJA_NEGRA_CON_ELEMENTOS");
+    }
+
+    // ---------- Mensajes (HU-25 a HU-28) ----------
+
+    private final Pool proveedor = Pool.builder().id(11L).nombre("Proveedor").tipo(TipoPool.PROVEEDOR).build();
+    private final List<Mensaje> mensajes = new ArrayList<>();
+
+    private void conProveedor() {
+        when(poolRepository.findByProcesoIdAndActivoTrueOrderByOrdenAscIdAsc(1L)).thenReturn(List.of(pool, proveedor));
+        when(mensajeRepository.listarActivosDelProceso(1L)).thenReturn(mensajes);
+    }
+
+    private Mensaje envio(String nombre, String clave) {
+        NodoFlujo evento = nodo(TipoNodo.MESSAGE_THROW, nombre);
+        evento.setVariante(VarianteEvento.FIN);
+        Mensaje m = Mensaje.builder().id(ids++).nodo(evento).direccion(DireccionMensaje.ENVIO).nombre(nombre)
+                .poolDestino(proveedor).claveCorrelacion(clave).build();
+        mensajes.add(m);
+        return m;
+    }
+
+    private Mensaje recepcion(String nombre, VarianteEvento variante, String clave, boolean externo) {
+        NodoFlujo evento = NodoFlujo.builder().id(ids++).proceso(proceso).pool(proveedor).tipo(TipoNodo.MESSAGE_CATCH)
+                .nombre(nombre).variante(variante).build();
+        nodos.add(evento);
+        Mensaje m = Mensaje.builder().id(ids++).nodo(evento).direccion(DireccionMensaje.RECEPCION).nombre(nombre)
+                .claveCorrelacion(clave).origenExterno(externo).build();
+        mensajes.add(m);
+        return m;
+    }
+
+    private List<String> codigosDeMensajes() {
+        return validador.revisar(proceso).stream().map(Advertencia::codigo)
+                .filter(c -> c.startsWith("MENSAJE") || c.startsWith("CATCH") || c.startsWith("CORRELACION")).toList();
+    }
+
+    @Test
+    void Validador_throwSinCatchEnElDestino_Aviso() {
+        conProveedor();
+        envio("OrdenDeCompra", null);
+
+        assertThat(codigosDeMensajes()).containsExactly("MENSAJE_SIN_RECEPTOR");
+    }
+
+    @Test
+    void Validador_catchSinThrowNiOrigenExterno_Error() {
+        conProveedor();
+        recepcion("Pago", VarianteEvento.INICIO, null, false);
+
+        assertThat(codigosDeMensajes()).containsExactly("CATCH_SIN_EMISOR");
+    }
+
+    @Test
+    void Validador_catchDeOrigenExterno_NoNecesitaEmisor() {
+        conProveedor();
+        recepcion("Pago", VarianteEvento.INICIO, null, true);
+
+        assertThat(codigosDeMensajes()).isEmpty();
+    }
+
+    @Test
+    void Validador_parThrowCatchConLaMismaClave_SinProblemas() {
+        conProveedor();
+        envio("Orden", "numeroOrden");
+        recepcion("orden", VarianteEvento.INTERMEDIO, " NUMEROORDEN ", false);
+
+        assertThat(codigosDeMensajes()).isEmpty();
+    }
+
+    @Test
+    void Validador_claveDistintaEntreThrowYCatch_Incoherente() {
+        conProveedor();
+        envio("Orden", "numeroOrden");
+        recepcion("Orden", VarianteEvento.INTERMEDIO, "nit", false);
+
+        assertThat(codigosDeMensajes()).containsExactly("CORRELACION_INCOHERENTE");
+    }
+
+    @Test
+    void Validador_catchIntermedioSinClave_Aviso() {
+        conProveedor();
+        envio("Orden", null);
+        recepcion("Orden", VarianteEvento.INTERMEDIO, null, false);
+
+        assertThat(codigosDeMensajes()).containsExactly("CORRELACION_FALTANTE");
+    }
+
+    @Test
+    void Validador_dosEnviosConMismoNombreYClave_Ambiguos() {
+        conProveedor();
+        envio("Pago", "factura");
+        envio("Pago", "FACTURA");
+        recepcion("Pago", VarianteEvento.INICIO, "factura", false);
+
+        assertThat(codigosDeMensajes()).containsExactly("CORRELACION_AMBIGUA", "CORRELACION_AMBIGUA");
+    }
+
+    @Test
+    void Validador_destinoEliminadoOMismoPool_Error() {
+        conProveedor();
+        Mensaje m = envio("Orden", null);
+        proveedor.setActivo(false);
+        assertThat(codigosDeMensajes()).containsExactly("MENSAJE_SIN_DESTINO");
+
+        proveedor.setActivo(true);
+        m.setPoolDestino(pool);
+        assertThat(codigosDeMensajes()).contains("MENSAJE_MISMO_POOL");
     }
 
     @Test

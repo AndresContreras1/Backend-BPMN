@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -18,11 +19,15 @@ import co.edu.javeriana.bpmn.gestion.entity.EstadoProceso;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
 import co.edu.javeriana.bpmn.modelado.dto.Advertencia;
 import co.edu.javeriana.bpmn.modelado.entity.Arco;
+import co.edu.javeriana.bpmn.modelado.entity.DireccionMensaje;
+import co.edu.javeriana.bpmn.modelado.entity.Mensaje;
+import co.edu.javeriana.bpmn.modelado.entity.VarianteEvento;
 import co.edu.javeriana.bpmn.modelado.entity.NodoFlujo;
 import co.edu.javeriana.bpmn.modelado.entity.Pool;
 import co.edu.javeriana.bpmn.modelado.entity.TipoGateway;
 import co.edu.javeriana.bpmn.modelado.entity.TipoNodo;
 import co.edu.javeriana.bpmn.modelado.repository.ArcoRepository;
+import co.edu.javeriana.bpmn.modelado.repository.MensajeRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.PoolRepository;
 import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
@@ -35,6 +40,7 @@ public class ValidadorDeProcesoServiceImpl implements ValidadorDeProcesoService 
     private final NodoFlujoRepository nodoRepository;
     private final ArcoRepository arcoRepository;
     private final PoolRepository poolRepository;
+    private final MensajeRepository mensajeRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,11 +74,79 @@ public class ValidadorDeProcesoServiceImpl implements ValidadorDeProcesoService 
         }
         for (Pool pool : poolRepository.findByProcesoIdAndActivoTrueOrderByOrdenAscIdAsc(proceso.getId())) {
             List<NodoFlujo> delPool = nodos.stream().filter(n -> n.getPool().getId().equals(pool.getId())).toList();
-            if (!pool.isCajaNegra() && !delPool.isEmpty()) {
+            if (pool.isCajaNegra() && !delPool.isEmpty()) {
+                advertencias.add(Advertencia.error("CAJA_NEGRA_CON_ELEMENTOS",
+                        "El pool '" + pool.getNombre() + "' es caja negra y no puede tener elementos internos", pool.getId()));
+            } else if (!delPool.isEmpty()) {
                 revisarPool(pool, delPool, salientes, entrantes, advertencias);
             }
         }
+        List<Mensaje> mensajes = mensajeRepository.listarActivosDelProceso(proceso.getId()).stream()
+                .filter(m -> idsNodos.contains(m.getNodo().getId())).toList();
+        revisarMensajes(mensajes, advertencias);
         return advertencias;
+    }
+
+    /** HU-25 a HU-28: receptores, emisores y correlación de los mensajes entre pools. */
+    private static void revisarMensajes(List<Mensaje> mensajes, List<Advertencia> advertencias) {
+        Map<String, List<Mensaje>> porCorrelacion = new HashMap<>();
+        for (Mensaje m : mensajes) {
+            NodoFlujo nodo = m.getNodo();
+            if (m.getDireccion() == DireccionMensaje.ENVIO) {
+                Pool destino = m.getPoolDestino();
+                if (destino == null || !destino.isActivo()) {
+                    advertencias.add(Advertencia.error("MENSAJE_SIN_DESTINO",
+                            "El mensaje '" + m.getNombre() + "' apunta a un pool que ya no existe", nodo.getId()));
+                    continue;
+                }
+                if (destino.getId().equals(nodo.getPool().getId())) {
+                    advertencias.add(Advertencia.error("MENSAJE_MISMO_POOL",
+                            "El mensaje '" + m.getNombre() + "' no cruza de un pool a otro", nodo.getId()));
+                }
+                if (!destino.isCajaNegra()) {
+                    List<Mensaje> receptores = mensajes.stream()
+                            .filter(r -> r.getDireccion() == DireccionMensaje.RECEPCION)
+                            .filter(r -> r.getNombre().equalsIgnoreCase(m.getNombre()))
+                            .filter(r -> r.getNodo().getPool().getId().equals(destino.getId()))
+                            .toList();
+                    if (receptores.isEmpty()) {
+                        advertencias.add(Advertencia.aviso("MENSAJE_SIN_RECEPTOR", "El mensaje '" + m.getNombre()
+                                + "' no tiene un Message Catch con ese nombre en el pool '" + destino.getNombre() + "'", nodo.getId()));
+                    }
+                    receptores.stream()
+                            .filter(r -> !Objects.equals(normalizar(r.getClaveCorrelacion()), normalizar(m.getClaveCorrelacion())))
+                            .forEach(r -> advertencias.add(Advertencia.error("CORRELACION_INCOHERENTE", "El mensaje '"
+                                    + m.getNombre() + "' no usa la misma clave de correlación en el envío y en la recepción",
+                                    nodo.getId())));
+                }
+            } else {
+                boolean tieneEmisor = mensajes.stream()
+                        .filter(e -> e.getDireccion() == DireccionMensaje.ENVIO && e.getPoolDestino() != null)
+                        .anyMatch(e -> e.getNombre().equalsIgnoreCase(m.getNombre())
+                                && e.getPoolDestino().getId().equals(nodo.getPool().getId()));
+                if (!tieneEmisor && !m.isOrigenExterno()) {
+                    advertencias.add(Advertencia.error("CATCH_SIN_EMISOR", "El Message Catch '" + m.getNombre()
+                            + "' no tiene un Message Throw con ese nombre ni está marcado como de origen externo", nodo.getId()));
+                }
+                if (nodo.getVariante() == VarianteEvento.INTERMEDIO && m.getClaveCorrelacion() == null) {
+                    advertencias.add(Advertencia.aviso("CORRELACION_FALTANTE", "El Message Catch intermedio '"
+                            + m.getNombre() + "' no tiene clave de correlación: no se sabe a qué caso en espera corresponde",
+                            nodo.getId()));
+                }
+            }
+            if (m.getClaveCorrelacion() != null) {
+                porCorrelacion.computeIfAbsent(m.getDireccion() + "|" + normalizar(m.getNombre()) + "|"
+                        + normalizar(m.getClaveCorrelacion()), k -> new ArrayList<>()).add(m);
+            }
+        }
+        porCorrelacion.values().stream().filter(grupo -> grupo.size() > 1).forEach(grupo ->
+                grupo.forEach(m -> advertencias.add(Advertencia.aviso("CORRELACION_AMBIGUA", "Hay " + grupo.size()
+                        + " mensajes '" + m.getNombre() + "' con la misma clave '" + m.getClaveCorrelacion()
+                        + "': son ambiguos", m.getNodo().getId()))));
+    }
+
+    private static String normalizar(String texto) {
+        return texto == null ? null : texto.trim().toLowerCase(Locale.ROOT);
     }
 
     private static void revisarPool(Pool pool, List<NodoFlujo> nodos, Map<Long, List<Arco>> salientes,

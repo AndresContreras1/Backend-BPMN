@@ -15,6 +15,7 @@ import co.edu.javeriana.bpmn.modelado.dto.NodoResponse;
 import co.edu.javeriana.bpmn.modelado.repository.ArcoRepository;
 import co.edu.javeriana.bpmn.modelado.repository.NodoFlujoRepository;
 import co.edu.javeriana.bpmn.modelado.service.DiagramaService;
+import co.edu.javeriana.bpmn.modelado.service.MensajeService;
 import co.edu.javeriana.bpmn.modelado.service.PoolService;
 import co.edu.javeriana.bpmn.modelado.service.ValidadorDeProcesoService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class DiagramaServiceImpl implements DiagramaService {
     private final NodoFlujoRepository nodoRepository;
     private final ArcoRepository arcoRepository;
     private final ValidadorDeProcesoService validador;
+    private final MensajeService mensajeService;
 
     @Override
     @Transactional(readOnly = true)
@@ -38,6 +40,7 @@ public class DiagramaServiceImpl implements DiagramaService {
                 poolService.listar(procesoId, empresaId),
                 nodoRepository.listarActivosDelProceso(proceso.getId()).stream().map(NodoResponse::de).toList(),
                 arcoRepository.listarActivosDelProceso(proceso.getId()).stream().map(ArcoResponse::de).toList(),
+                mensajeService.listar(procesoId, empresaId),
                 validador.revisar(proceso));
     }
 

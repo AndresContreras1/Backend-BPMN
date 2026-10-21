@@ -6,8 +6,9 @@ import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
 
 /**
  * HU-07: el diagrama completo para dibujarlo: pools con sus lanes, actividades, gateways,
- * eventos, arcos y las advertencias de coherencia del momento.
+ * eventos, arcos, mensajes entre pools (con su correlación) y las advertencias de coherencia.
  */
 public record DiagramaResponse(ProcesoResponse proceso, List<PoolResponse> pools, List<NodoResponse> nodos,
-                               List<ArcoResponse> arcos, List<Advertencia> advertencias) {
+                               List<ArcoResponse> arcos, List<MensajeResponse> mensajes,
+                               List<Advertencia> advertencias) {
 }

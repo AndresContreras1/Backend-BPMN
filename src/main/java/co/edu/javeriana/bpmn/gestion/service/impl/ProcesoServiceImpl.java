@@ -1,9 +1,13 @@
 package co.edu.javeriana.bpmn.gestion.service.impl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -15,14 +19,21 @@ import co.edu.javeriana.bpmn.common.dto.PageResponse;
 import co.edu.javeriana.bpmn.common.exception.NotFoundException;
 import co.edu.javeriana.bpmn.common.exception.ReglaDeNegocioException;
 import co.edu.javeriana.bpmn.common.util.Paginacion;
+import co.edu.javeriana.bpmn.gestion.dto.ComparticionResponse;
+import co.edu.javeriana.bpmn.gestion.dto.CompartirRequest;
 import co.edu.javeriana.bpmn.gestion.dto.FiltroProceso;
+import co.edu.javeriana.bpmn.gestion.dto.ProcesoCompartidoResponse;
 import co.edu.javeriana.bpmn.gestion.dto.HistorialResponse;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoActualizacionRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoRequest;
 import co.edu.javeriana.bpmn.gestion.dto.ProcesoResponse;
 import co.edu.javeriana.bpmn.gestion.entity.ElementoHistorial;
+import co.edu.javeriana.bpmn.gestion.entity.Empresa;
 import co.edu.javeriana.bpmn.gestion.entity.Proceso;
+import co.edu.javeriana.bpmn.gestion.entity.ProcesoCompartido;
 import co.edu.javeriana.bpmn.gestion.entity.TipoCambio;
+import co.edu.javeriana.bpmn.gestion.repository.EmpresaRepository;
+import co.edu.javeriana.bpmn.gestion.repository.ProcesoCompartidoRepository;
 import co.edu.javeriana.bpmn.gestion.repository.ProcesoRepository;
 import co.edu.javeriana.bpmn.gestion.service.EmpresaService;
 import co.edu.javeriana.bpmn.gestion.service.HistorialService;
@@ -43,6 +54,8 @@ public class ProcesoServiceImpl implements ProcesoService {
     private static final Set<String> ORDEN_HISTORIAL = Set.of("fecha", "id", "tipo", "elemento");
 
     private final ProcesoRepository procesoRepository;
+    private final ProcesoCompartidoRepository compartidoRepository;
+    private final EmpresaRepository empresaRepository;
     private final PoolRepository poolRepository;
     private final EmpresaService empresaService;
     private final HistorialService historialService;
@@ -154,8 +167,89 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Transactional(readOnly = true)
     public PageResponse<HistorialResponse> historial(Long id, Long empresaId, Pageable pageable) {
         Paginacion.validarOrden(pageable, ORDEN_HISTORIAL);
-        Proceso proceso = obtenerParaLectura(id, empresaId);
+        Proceso proceso = obtenerParaLecturaPropia(id, empresaId);
         return historialService.listarPorProceso(proceso.getId(), proceso.getEmpresaId(), pageable);
+    }
+
+    @Override
+    @Transactional
+    @PreAuthorize("hasAuthority('ADMINISTRADOR')")
+    public ComparticionResponse compartir(Long id, CompartirRequest request, Long empresaId) {
+        Proceso proceso = obtenerDeEmpresa(id, empresaId);   // solo la empresa propietaria (404 a las invitadas)
+        List<ProcesoCompartido> actuales = compartidoRepository.findByProcesoIdAndActivoTrue(id);
+
+        List<Empresa> invitadas = List.of();
+        if (Boolean.TRUE.equals(request.compartido())) {
+            Set<String> nits = new LinkedHashSet<>(request.nitsEmpresas() == null ? List.of() : request.nitsEmpresas());
+            if (nits.isEmpty()) {
+                throw new ReglaDeNegocioException("Indique al menos el NIT de una empresa con la que se comparte el proceso");
+            }
+            invitadas = empresaRepository.findByNitInAndActivoTrue(List.copyOf(nits));
+            Set<String> encontrados = invitadas.stream().map(Empresa::getNit).collect(Collectors.toSet());
+            List<String> faltantes = nits.stream().filter(n -> !encontrados.contains(n)).toList();
+            if (!faltantes.isEmpty()) {
+                throw new NotFoundException("No existe una empresa registrada con el NIT " + String.join(", ", faltantes));
+            }
+            if (invitadas.stream().anyMatch(e -> e.getId().equals(empresaId))) {
+                throw new ReglaDeNegocioException("Un proceso no se comparte con la misma empresa que lo creó");
+            }
+        }
+
+        Set<Long> nuevas = invitadas.stream().map(Empresa::getId).collect(Collectors.toSet());
+        Set<Long> yaCompartidas = new HashSet<>();
+        for (ProcesoCompartido c : actuales) {
+            if (nuevas.contains(c.getEmpresaInvitadaId())) {
+                yaCompartidas.add(c.getEmpresaInvitadaId());
+            } else {
+                c.setActivo(false);
+            }
+        }
+        for (Empresa empresa : invitadas) {
+            if (!yaCompartidas.contains(empresa.getId())) {
+                ProcesoCompartido compartido = ProcesoCompartido.builder().proceso(proceso).empresaInvitadaId(empresa.getId()).build();
+                compartido.setEmpresaId(empresaId);
+                compartidoRepository.save(compartido);
+            }
+        }
+
+        String detalle = invitadas.isEmpty()
+                ? "El proceso dejó de compartirse"
+                : "Proceso compartido en solo lectura con: " + invitadas.stream()
+                        .map(e -> e.getNombre() + " (" + e.getNit() + ")").collect(Collectors.joining(", "));
+        historialService.registrar(proceso, TipoCambio.COMPARTICION, ElementoHistorial.PROCESO, id, detalle);
+        return respuestaComparticion(invitadas);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ComparticionResponse comparticion(Long id, Long empresaId) {
+        Proceso proceso = obtenerParaLecturaPropia(id, empresaId);
+        List<Long> ids = compartidoRepository.findByProcesoIdAndActivoTrue(proceso.getId()).stream()
+                .map(ProcesoCompartido::getEmpresaInvitadaId).toList();
+        return respuestaComparticion(empresaRepository.findAllById(ids));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<ProcesoCompartidoResponse> compartidosConmigo(Long empresaId, Pageable pageable) {
+        Paginacion.validarOrden(pageable, ORDEN_PERMITIDO);
+        var pagina = procesoRepository.buscarCompartidosCon(empresaId, pageable);
+        Map<Long, String> propietarias = empresaRepository.findAllById(
+                        pagina.getContent().stream().map(Proceso::getEmpresaId).collect(Collectors.toSet()))
+                .stream().collect(Collectors.toMap(Empresa::getId, Empresa::getNombre, (a, c) -> a));
+        return PageResponse.de(pagina, p -> new ProcesoCompartidoResponse(ProcesoResponse.de(p, empresaId),
+                propietarias.getOrDefault(p.getEmpresaId(), "")));
+    }
+
+    private static ComparticionResponse respuestaComparticion(List<Empresa> empresas) {
+        return new ComparticionResponse(!empresas.isEmpty(), empresas.stream()
+                .map(e -> new ComparticionResponse.EmpresaInvitada(e.getNombre(), e.getNit())).toList());
+    }
+
+    /** Lectura solo de lo propio: el historial y la compartición no se muestran a las invitadas. */
+    private Proceso obtenerParaLecturaPropia(Long id, Long empresaId) {
+        return procesoRepository.findByIdAndEmpresaId(id, empresaId)
+                .orElseThrow(() -> new NotFoundException("No existe el proceso " + id));
     }
 
     @Override
@@ -168,7 +262,7 @@ public class ProcesoServiceImpl implements ProcesoService {
     @Override
     @Transactional(readOnly = true)
     public Proceso obtenerParaLectura(Long id, Long empresaId) {
-        return procesoRepository.findByIdAndEmpresaId(id, empresaId)
+        return procesoRepository.findLegibleByIdAndEmpresaId(id, empresaId)
                 .orElseThrow(() -> new NotFoundException("No existe el proceso " + id));
     }
 
