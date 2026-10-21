@@ -1,0 +1,16 @@
+target/
+data/
+.git/
+.github/
+.idea/
+.vscode/
+.mvn/
+mvnw
+mvnw.cmd
+*.mv.db
+*.trace.db
+.env
+compose.yaml
+README.md
+docs/
+postman/
