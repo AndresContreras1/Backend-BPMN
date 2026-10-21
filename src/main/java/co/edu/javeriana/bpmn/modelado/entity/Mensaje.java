@@ -18,8 +18,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToMany;
@@ -47,7 +45,7 @@ import lombok.ToString;
         query = "select m from Mensaje m where m.proceso.id = :procesoId and m.activo = true order by m.id")
 @Getter
 @Setter
-@ToString(exclude = {"proceso", "nodo", "poolDestino", "actividadManejoError", "campos", "actividadesQueUsan"})
+@ToString(exclude = {"proceso", "nodo", "poolDestino", "actividadManejoError", "campos", "usosDeDatos"})
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -117,11 +115,9 @@ public class Mensaje extends EntidadDeEmpresa {
     @Builder.Default
     private List<CampoMensaje> campos = new ArrayList<>();
 
-    /** HU-27: actividades del proceso que usan los datos recibidos. */
-    @ManyToMany
-    @JoinTable(name = "mensaje_actividad",
-            joinColumns = @JoinColumn(name = "mensaje_id"),
-            inverseJoinColumns = @JoinColumn(name = "actividad_id"))
+    /** HU-27: actividades del proceso que usan los datos recibidos (tabla intermedia como entidad). */
+    @OneToMany(mappedBy = "mensaje")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @Builder.Default
-    private List<NodoFlujo> actividadesQueUsan = new ArrayList<>();
+    private List<UsoDeDatosMensaje> usosDeDatos = new ArrayList<>();
 }

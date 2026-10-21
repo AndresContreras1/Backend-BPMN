@@ -1,0 +1,62 @@
+# Despliegue del backend en Kubernetes (microk8s). Las credenciales viven en el Secret
+# "backend-bpmn-secretos", que se crea en el servidor y nunca se sube al repositorio:
+#   microk8s kubectl create secret generic backend-bpmn-secretos -n bpmn \
+#     --from-literal=DB_USER=... --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bpmn
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-bpmn
+  namespace: bpmn
+  labels:
+    app: backend-bpmn
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-bpmn
+  template:
+    metadata:
+      labels:
+        app: backend-bpmn
+    spec:
+      containers:
+        - name: backend-bpmn
+          image: ghcr.io/andrescontreras1/backend-bpmn:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8090
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: DB_HOST
+              value: postgres
+            - name: DB_NAME
+              value: procesos
+            - name: CORS_ALLOWED_ORIGINS
+              value: http://localhost:4200
+          envFrom:
+            - secretRef:
+                name: backend-bpmn-secretos
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-bpmn
+  namespace: bpmn
+spec:
+  selector:
+    app: backend-bpmn
+  ports:
+    - port: 8090
+      targetPort: 8090
