@@ -6,6 +6,7 @@ package co.edu.javeriana.bpmn.common.exception;
  */
 public class NotFoundException extends RuntimeException {
 
+    /** @param mensaje texto que verá el cliente en el detalle del error */
     public NotFoundException(String mensaje) {
         super(mensaje);
     }

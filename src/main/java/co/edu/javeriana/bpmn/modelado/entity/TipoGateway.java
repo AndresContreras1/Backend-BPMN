@@ -7,7 +7,10 @@ package co.edu.javeriana.bpmn.modelado.entity;
  * INCLUSIVO (círculo): todos los caminos cuya condición se cumpla.
  */
 public enum TipoGateway {
+    /** Se toma un único camino. */
     EXCLUSIVO,
+    /** Se toman todos los caminos a la vez. */
     PARALELO,
+    /** Se toman todos los caminos cuya condición se cumple. */
     INCLUSIVO
 }

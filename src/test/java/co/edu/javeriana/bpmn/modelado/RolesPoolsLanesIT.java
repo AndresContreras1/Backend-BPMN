@@ -16,8 +16,11 @@ import org.junit.jupiter.api.Test;
 import co.edu.javeriana.bpmn.soporte.IntegracionBase;
 
 /** HU-17 a HU-22 y HU-24 de punta a punta. */
+// Suite de integración de roles de proceso, pools y lanes (aplicación completa + MockMvc + JWT real).
+// Hereda de IntegracionBase, que da el cliente api y limpia la base tras cada prueba.
 class RolesPoolsLanesIT extends IntegracionBase {
 
+    // Tokens de los usuarios de la empresa A y de la empresa B, y los ids del proceso y de su pool propietario.
     private String admin;
     private String editor;
     private String lector;
@@ -25,6 +28,7 @@ class RolesPoolsLanesIT extends IntegracionBase {
     private long proceso;
     private long poolEmpresa;
 
+    // Antes de cada prueba: empresa A con admin, editor y lector; empresa B; un proceso "Vacaciones" creado por el editor y su pool propietario.
     @BeforeEach
     void datos() throws Exception {
         admin = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
@@ -35,11 +39,13 @@ class RolesPoolsLanesIT extends IntegracionBase {
         poolEmpresa = api.id(api.get(editor, "/api/v1/procesos/{id}/pools", proceso), "0.id");
     }
 
+    // Auxiliar: el admin crea un rol de proceso (201) y devuelve su id.
     private long rol(String nombre) throws Exception {
         return api.id(api.post(admin, "/api/v1/roles-proceso", Map.of("nombre", nombre, "descripcion", "Rol " + nombre))
                 .andExpect(status().isCreated()), "id");
     }
 
+    // Auxiliar: crea una lane en un pool con un rol (201) y devuelve su id.
     private long lane(String token, long pool, long rol) throws Exception {
         return api.id(api.post(token, "/api/v1/pools/{id}/lanes", Map.of("rolProcesoId", rol), pool)
                 .andExpect(status().isCreated()), "id");
@@ -47,6 +53,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
 
     // ---------- HU-17 a HU-20 Roles de proceso ----------
 
+    // Escenario: crear roles con distintos usuarios.
+    // Esperado: el editor recibe 403; un nombre repetido da 409 aunque cambien las mayúsculas; la otra empresa sí puede repetirlo; un nombre vacío da 400.
     @Test
     void HU17_soloElAdministradorCreaRoles_YElNombreEsUnicoEnLaEmpresa() throws Exception {
         rol("Analista");
@@ -58,6 +66,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$.errors.nombre").exists());
     }
 
+    // Escenario: se renombra un rol que está en una lane de un proceso.
+    // Esperado: la respuesta lista el proceso afectado, la lane del diagrama muestra el nombre nuevo y el cambio queda en el historial del rol y del proceso.
     @Test
     void HU18_renombrarRol_RenombraLasLanesYQuedaEnElHistorial() throws Exception {
         long analista = rol("Analista");
@@ -75,6 +85,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[0].detalle", containsString("ahora se llaman 'Analista senior'")));
     }
 
+    // Escenario: renombrar un rol con el nombre de otro (en minúscula).
+    // Esperado: 409.
     @Test
     void HU18_nuevoNombreSigueSiendoUnico() throws Exception {
         rol("Analista");
@@ -84,6 +96,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(status().isConflict());
     }
 
+    // Escenario: eliminar un rol que usa una lane.
+    // Esperado: 409 con la lista de procesos; tras quitar la lane, el editor no puede (403) pero el admin sí (204), y luego da 404.
     @Test
     void HU19_rolEnUsoNoSeElimina_YIndicaLosProcesos() throws Exception {
         long analista = rol("Analista");
@@ -99,6 +113,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         api.get(admin, "/api/v1/roles-proceso/{id}", analista).andExpect(status().isNotFound());
     }
 
+    // Escenario: el único uso del rol es un proceso eliminado.
+    // Esperado: el rol se puede eliminar.
     @Test
     void HU19_rolUsadoSoloEnProcesoEliminadoSiSePuedeEliminar() throws Exception {
         long analista = rol("Analista");
@@ -108,6 +124,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         api.delete(admin, "/api/v1/roles-proceso/{id}", analista).andExpect(status().isNoContent());
     }
 
+    // Escenario: tres roles propios (uno en uso) y uno de la otra empresa.
+    // Esperado: el listado solo cuenta los propios, indica uso y si es eliminable, filtra por nombre y lista los procesos del rol.
     @Test
     void HU20_listadoConUsoBusquedaYPaginacion_SoloDeMiEmpresa() throws Exception {
         long analista = rol("Analista");
@@ -127,6 +145,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         api.get(lector, "/api/v1/roles-proceso/{id}/procesos", analista).andExpect(jsonPath("$[0].nombre").value("Vacaciones"));
     }
 
+    // Escenario: el admin de A consulta, edita y borra un rol de B.
+    // Esperado: 404 en los tres.
     @Test
     void HU20_rolDeOtraEmpresa_404() throws Exception {
         long ajeno = api.id(api.post(otraEmpresa, "/api/v1/roles-proceso", Map.of("nombre", "Externo")), "id");
@@ -138,6 +158,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
 
     // ---------- HU-21 Pools ----------
 
+    // Escenario: agregar un pool de cliente y uno de sistema externo.
+    // Esperado: el cliente no es caja negra, el sistema externo sí; el diagrama lista los pools en orden.
     @Test
     void HU21_variosPoolsYElSistemaExternoEsCajaNegra() throws Exception {
         api.post(editor, "/api/v1/procesos/{id}/pools", Map.of("nombre", "Cliente", "tipo", "CLIENTE"), proceso)
@@ -154,6 +176,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$.pools[0].tipo").value("PROPIETARIO"));
     }
 
+    // Escenario: pool propietario duplicado, sistema externo que no es caja negra, nombre repetido, tipo inexistente, editar el propietario como caja negra y eliminarlo.
+    // Esperado: 409, 409, 409, 400, 409 y 409.
     @Test
     void HU21_reglasDelPool() throws Exception {
         api.post(editor, "/api/v1/procesos/{id}/pools", Map.of("nombre", "Otra empresa", "tipo", "PROPIETARIO"), proceso)
@@ -171,6 +195,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$.detail").value("El pool de la empresa propietaria no se puede eliminar"));
     }
 
+    // Escenario: una caja negra no admite lanes; un pool con lanes no puede volverse caja negra ni eliminarse; uno vacío sí se elimina.
+    // Esperado: 409, 409, 409 y 204; quedan 2 pools.
     @Test
     void HU21_cajaNegraSinElementosInternos() throws Exception {
         long correo = api.id(api.post(editor, "/api/v1/procesos/{id}/pools",
@@ -189,6 +215,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         api.get(lector, "/api/v1/procesos/{id}/pools", proceso).andExpect(jsonPath("$", hasSize(2)));
     }
 
+    // Escenario: renombrar un pool.
+    // Esperado: el historial registra el cambio de nombre.
     @Test
     void HU21_cambiosDelPoolQuedanEnElHistorial() throws Exception {
         long cliente = api.id(api.post(editor, "/api/v1/procesos/{id}/pools",
@@ -203,6 +231,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
 
     // ---------- HU-22 Lanes ----------
 
+    // Escenario: tres lanes; se reordenan, se cambia el rol de una y se elimina otra.
+    // Esperado: el diagrama refleja el orden y los nombres finales.
     @Test
     void HU22_crearRenombrarReordenarYEliminarLanes() throws Exception {
         long empleado = rol("Empleado");
@@ -224,6 +254,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$.pools[0].lanes[*].nombre", contains("Talento Humano", "Supervisor")));
     }
 
+    // Escenario: rol repetido en el pool, rol de otra empresa, sin rol, reordenar con ids repetidos y con lista vacía.
+    // Esperado: 409, 404, 400, 409 y 400.
     @Test
     void HU22_reglasDeLanes() throws Exception {
         long empleado = rol("Empleado");
@@ -243,6 +275,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
 
     // ---------- HU-24 Permisos de estructura ----------
 
+    // Escenario: pedir los roles disponibles para un pool.
+    // Esperado: solo los roles de la propia empresa.
     @Test
     void HU24_rolesDisponiblesSonLosDeLaEmpresa() throws Exception {
         rol("Analista");
@@ -253,6 +287,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
                 .andExpect(jsonPath("$[*].nombre", contains("Analista", "Supervisor")));
     }
 
+    // Escenario: permisos de estructura.
+    // Esperado: el lector ve pero no modifica (403); el editor no puede cambiar el permiso; cuando el admin lo restringe a SOLO_ADMINISTRADOR, el editor pierde la edición y el admin la conserva.
     @Test
     void HU24_lectorVePeroNoModifica_YElAdministradorRestringeAlEditor() throws Exception {
         long analista = rol("Analista");
@@ -276,6 +312,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         lane(admin, poolEmpresa, analista);
     }
 
+    // Escenario: cambiar el permiso de un pool que no es el propietario.
+    // Esperado: 409.
     @Test
     void HU24_permisosSoloEnElPoolPropietario() throws Exception {
         long cliente = api.id(api.post(editor, "/api/v1/procesos/{id}/pools",
@@ -287,6 +325,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
 
     // ---------- Aislamiento ----------
 
+    // Escenario: la empresa B consulta, crea, edita y borra estructura de A.
+    // Esperado: 404 en todo.
     @Test
     void PoolsYLanesDeOtraEmpresa_404() throws Exception {
         long analista = rol("Analista");
@@ -301,6 +341,8 @@ class RolesPoolsLanesIT extends IntegracionBase {
         api.delete(otraEmpresa, "/api/v1/lanes/{id}", laneA).andExpect(status().isNotFound());
     }
 
+    // Escenario: se elimina el proceso.
+    // Esperado: no se puede modificar su estructura (404) pero su diagrama sigue visible con activo=false.
     @Test
     void ProcesoEliminado_NoSeModificaSuEstructuraPeroSeVeSuDiagrama() throws Exception {
         api.delete(admin, "/api/v1/procesos/{id}", proceso).andExpect(status().isNoContent());

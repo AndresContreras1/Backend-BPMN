@@ -27,6 +27,7 @@ import lombok.ToString;
  * Arco o flujo de secuencia (HU-11): línea continua con punta sólida que fija el orden del trabajo
  * dentro de un pool. Nunca cruza pools: esa comunicación es un mensaje (HU-25).
  * La condición solo aplica cuando sale de un gateway exclusivo o inclusivo (HU-12).
+ * Hereda de EntidadDeEmpresa, por lo que cada arco queda ligado a la empresa dueña.
  */
 @Entity
 @Table(name = "arco", indexes = {
@@ -43,31 +44,38 @@ import lombok.ToString;
 @Builder
 public class Arco extends EntidadDeEmpresa {
 
+    /** Identificador de la fila; la base de datos lo genera sola (autoincremental). */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Proceso al que pertenece el arco. LAZY: no se carga hasta que se use. ON DELETE CASCADE: si se borra el proceso, la base borra sus arcos. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "proceso_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Proceso proceso;
 
+    /** Nodo de donde sale el arco. Se borra en cascada con el nodo. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "origen_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NodoFlujo origen;
 
+    /** Nodo al que llega el arco. Se borra en cascada con el nodo. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "destino_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NodoFlujo destino;
 
+    /** Texto opcional que se muestra sobre la línea (máximo 80 caracteres). */
     @Column(length = 80, nullable = true)
     private String etiqueta;
 
+    /** Condición del camino; solo se usa si el arco sale de un gateway exclusivo o inclusivo (máximo 200 caracteres). */
     @Column(length = 200, nullable = true)
     private String condicion;
 
+    /** Borrado lógico: en vez de borrar la fila se pone en false y deja de listarse. Por defecto nace activo. */
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;

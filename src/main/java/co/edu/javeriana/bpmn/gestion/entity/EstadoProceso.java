@@ -5,6 +5,8 @@ package co.edu.javeriana.bpmn.gestion.entity;
  * estado en el que el diagrama debe ser coherente. La eliminación lógica es otro eje (activo).
  */
 public enum EstadoProceso {
+    /** Proceso en construcción; el diagrama puede estar incompleto. */
     BORRADOR,
+    /** Proceso terminado; el diagrama debe ser coherente. */
     PUBLICADO
 }

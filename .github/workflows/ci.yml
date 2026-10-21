@@ -1,25 +1,32 @@
+# Integracion continua: compila y prueba el backend en cada push a main y en cada pull request
 name: CI
 
+# Cuando se ejecuta
 on:
   push:
     branches: [main]
   pull_request:
 
+# Trabajos del flujo; "docker" espera a que "build" termine bien (needs)
 jobs:
   build:
     name: Compilar, probar y analizar
+    # Maquina virtual de GitHub donde corre el trabajo
     runs-on: ubuntu-latest
     # A nivel de job: los secretos no se pueden leer en un "if" y el env del mismo paso tampoco
     env:
+      # El secreto se guarda en Settings > Secrets del repositorio; nunca en el codigo
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     steps:
+      # Paso 1: descarga el codigo del repositorio
       - name: Checkout
         uses: actions/checkout@v4
         with:
           # Sonar necesita el historial completo para distinguir el codigo nuevo
           fetch-depth: 0
 
+      # Paso 2: instala Java 17 y guarda en cache las dependencias de Maven
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -27,9 +34,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      # Paso 3: compila, corre las pruebas y genera el reporte de cobertura; si algo falla, el CI queda en rojo
       - name: Compilar y ejecutar pruebas con cobertura
         run: ./mvnw -B verify
 
+      # Paso 4: sube el reporte como artefacto descargable; always() lo sube incluso si las pruebas fallaron
       - name: Publicar reporte de cobertura JaCoCo
         if: always()
         uses: actions/upload-artifact@v4
@@ -37,6 +46,7 @@ jobs:
           name: cobertura-jacoco
           path: target/site/jacoco/
 
+      # Paso 5: analisis de calidad de codigo (solo si hay token)
       - name: Analisis SonarCloud
         # Se omite hasta que exista el secreto SONAR_TOKEN en el repositorio
         if: env.SONAR_TOKEN != ''
@@ -45,11 +55,13 @@ jobs:
   docker:
     name: Construir imagen Docker
     runs-on: ubuntu-latest
+    # Solo corre si el trabajo anterior termino bien
     needs: build
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Verifica que el Dockerfile construya la imagen (no se publica)
       - name: Construir imagen
         run: docker build -t backend-bpmn:ci .

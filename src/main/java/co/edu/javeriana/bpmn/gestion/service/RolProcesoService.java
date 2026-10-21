@@ -18,6 +18,7 @@ public interface RolProcesoService {
     /** HU-20 */
     PageResponse<RolProcesoResponse> listar(Long empresaId, String nombre, Pageable pageable);
 
+    /** Devuelve un rol de la empresa junto con los procesos que lo usan. */
     RolProcesoResponse obtener(Long id, Long empresaId);
 
     /** HU-17 */
@@ -32,10 +33,12 @@ public interface RolProcesoService {
     /** HU-20: procesos en los que se usa. */
     List<ProcesoResumen> procesos(Long id, Long empresaId);
 
+    /** Historial de cambios del rol (creación, renombrado, eliminación). */
     List<HistorialResponse> historial(Long id, Long empresaId);
 
     /** HU-24: roles asignables a las lanes. */
     List<RolProcesoResumen> catalogo(Long empresaId);
 
+    /** Devuelve la entidad del rol activo de la empresa (404 si no existe o es de otra empresa). */
     RolProceso obtenerDeEmpresa(Long id, Long empresaId);
 }

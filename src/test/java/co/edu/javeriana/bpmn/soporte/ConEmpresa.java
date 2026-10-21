@@ -13,6 +13,7 @@ import org.springframework.security.test.context.support.WithSecurityContext;
 @WithSecurityContext(factory = ConEmpresaSecurityContextFactory.class)
 public @interface ConEmpresa {
 
+    // Valores por defecto del usuario simulado; cada prueba puede cambiarlos al usar la anotación.
     long empresa() default 1L;
 
     long usuario() default 10L;

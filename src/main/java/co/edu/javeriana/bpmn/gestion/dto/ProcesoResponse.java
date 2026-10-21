@@ -13,6 +13,10 @@ public record ProcesoResponse(Long id, String nombre, String descripcion, String
                               boolean activo, Long version, boolean propio,
                               Instant creadoEn, String creadoPor, Instant modificadoEn, String modificadoPor) {
 
+    /**
+     * Convierte la entidad Proceso en este DTO. Recibe el id de la empresa que consulta para
+     * calcular "propio": es true solo si el proceso pertenece a esa empresa.
+     */
     public static ProcesoResponse de(Proceso p, Long empresaId) {
         return new ProcesoResponse(p.getId(), p.getNombre(), p.getDescripcion(), p.getCategoria(), p.getEstado(),
                 p.isActivo(), p.getVersion(), p.getEmpresaId().equals(empresaId),

@@ -21,8 +21,10 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    // Prefijo con el que viene el token en el header Authorization.
     private static final String PREFIJO = "Bearer ";
 
+    // Valida el token y consulta que el usuario siga activo.
     private final JwtService jwtService;
     private final CustomUserDetailService userDetailService;
 
@@ -31,10 +33,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         this.userDetailService = userDetailService;
     }
 
+    /** Se ejecuta una vez por petición, antes de llegar al controlador. */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        // 1. Se lee el token del header. 2. Si hay token y la petición aún no está autenticada, se valida la firma,
+        // se busca al usuario activo y se guarda en el contexto de seguridad. 3. Siempre se continúa la cadena.
         String token = extraerToken(request);
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             jwtService.usuarioIdSiEsValido(token)
@@ -44,6 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    /** Guarda al usuario en el contexto de seguridad de esta petición. */
     private static void autenticar(Usuario usuario, HttpServletRequest request) {
         ApiPrincipal principal = ApiPrincipal.de(usuario);
         UsernamePasswordAuthenticationToken authentication =
@@ -52,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
+    /** @return el token sin el prefijo Bearer, o null si el header no existe o no tiene ese formato */
     private static String extraerToken(HttpServletRequest request) {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith(PREFIJO) && header.length() > PREFIJO.length()) {

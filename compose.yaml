@@ -1,26 +1,37 @@
 # Backend + PostgreSQL. Los valores salen del archivo .env (ver .env.example)
+# Cada servicio es un contenedor
 services:
+  # Base de datos PostgreSQL
   db:
     image: postgres:16
     environment:
+      # Crea el usuario, la contrasena y la base al primer arranque. ${DB_NAME:-procesos} usa "procesos" si DB_NAME no esta definida
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-procesos}
+    # Comprueba con pg_isready si la base ya acepta conexiones; el backend espera a que lo haga
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-procesos}"]
       interval: 5s
       timeout: 5s
       retries: 10
     volumes:
+      # Volumen con nombre: los datos sobreviven aunque se borre el contenedor
       - pgdata:/var/lib/postgresql/data
+    # Red interna compartida: el backend alcanza la base con el nombre "db"
     networks: [bpmn]
 
+  # La API; se construye con el Dockerfile de este repositorio
   backend:
+    # Construye la imagen desde el Dockerfile de la carpeta actual
     build: .
     depends_on:
       db:
+        # No arranca hasta que el healthcheck de la base sea exitoso
         condition: service_healthy
     environment:
+      # Variables de entorno que leen application-prod.properties y las clases de configuracion.
+      # DB_HOST es "db": el nombre del servicio de arriba
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       DB_HOST: db
       DB_PORT: 5432
@@ -35,11 +46,14 @@ services:
       RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-10}
       RATE_LIMIT_REGISTRO: ${RATE_LIMIT_REGISTRO:-10}
     ports:
+      # Publica el puerto 8090 del contenedor en el 8090 del equipo
       - "8090:8090"
     networks: [bpmn]
 
+# Declaracion del volumen usado por la base de datos
 volumes:
   pgdata:
 
+# Declaracion de la red interna
 networks:
   bpmn:

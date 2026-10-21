@@ -11,12 +11,14 @@ public class RegistroPagina extends Pagina {
         super(driver, wait);
     }
 
+    // Va a /registro y espera el campo nombre.
     public RegistroPagina abrir() {
         ir("/registro");
         visible(By.id("nombre"));
         return this;
     }
 
+    // Llena los cinco campos, envía y espera quedar en /inicio con la empresa cargada.
     public InicioPagina registrar(String empresa, String nit, String representante, String correo, String password) {
         escribir(By.id("nombre"), empresa);
         escribir(By.id("nit"), nit);

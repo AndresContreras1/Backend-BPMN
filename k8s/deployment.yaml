@@ -9,11 +9,13 @@
 #                            --from-literal=DB_PASSWORD=... --from-literal=JWT_SECRET=...
 # JWT_SECRET es obligatorio con dos réplicas: si cada pod generara su propia clave, un token firmado
 # por uno no valdría en el otro.
+# Recurso 1: namespace, una carpeta logica donde viven los demas recursos
 apiVersion: v1
 kind: Namespace
 metadata:
   name: bpmn
 ---
+# Recurso 2: Deployment, mantiene vivos los pods del backend
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -22,7 +24,9 @@ metadata:
   labels:
     app: backend-bpmn
 spec:
+  # Dos copias del backend para tener disponibilidad (si una cae, la otra atiende)
   replicas: 2
+  # El Deployment gestiona los pods que tengan esta etiqueta, la misma de template.metadata.labels
   selector:
     matchLabels:
       app: backend-bpmn
@@ -31,23 +35,31 @@ spec:
       labels:
         app: backend-bpmn
     spec:
+      # Credencial para descargar la imagen privada de GHCR
       imagePullSecrets:
         - name: ghcr-secret
       containers:
         - name: backend-bpmn
+          # Imagen publicada por el flujo deploy.yaml
           image: ghcr.io/andrescontreras1/backend-bpmn:latest
+          # Descarga la imagen en cada arranque del pod, para recibir siempre el :latest nuevo
           imagePullPolicy: Always
           ports:
+            # Puerto en que escucha la API dentro del contenedor
             - containerPort: 8090
+          # Variables de entorno fijas del contenedor; las credenciales llegan del Secret (envFrom)
           env:
             - name: SPRING_PROFILES_ACTIVE
+              # Activa application-prod.properties (PostgreSQL y Flyway)
               value: prod
             # El navegador entra por el mismo dominio del Ingress (frontend y API), así que no hay CORS
             - name: CORS_ALLOWED_ORIGINS
               value: https://bpmn.inphotech.co
+          # Carga como variables de entorno todas las claves del Secret (DB_*, JWT_SECRET)
           envFrom:
             - secretRef:
                 name: backend-bpmn-secretos
+          # Recursos del pod: requests es lo minimo que se reserva; limits es el tope. Si pasa del limite de memoria, Kubernetes lo reinicia
           resources:
             requests:
               cpu: 250m
@@ -56,29 +68,35 @@ spec:
               memory: 768Mi
 ---
 # El Service se llama "backend": es el nombre que usa el nginx del frontend (proxy_pass http://backend:8090)
+# Recurso 3: Service, direccion interna estable que reparte el trafico entre los pods
 apiVersion: v1
 kind: Service
 metadata:
   name: backend
   namespace: bpmn
 spec:
+  # El Service envia el trafico a los pods con esta etiqueta
   selector:
     app: backend-bpmn
   ports:
     - protocol: TCP
+      # Puerto del Service y puerto del contenedor al que se redirige
       port: 8090
       targetPort: 8090
 ---
 # La API y Swagger por el dominio del grupo; la raíz (/) la atiende el Ingress del frontend.
 # Cambiar el host por el subdominio asignado al grupo (<grupo>.inphotech.co).
+# Recurso 4: Ingress, regla de entrada que publica rutas hacia el Service desde fuera del cluster
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: backend-bpmn
   namespace: bpmn
 spec:
+  # Controlador de entrada de microk8s
   ingressClassName: public
   rules:
+    # Dominio publico. Las rutas de abajo (/api, /swagger-ui, /v3/api-docs) van al backend
     - host: bpmn.inphotech.co
       http:
         paths:

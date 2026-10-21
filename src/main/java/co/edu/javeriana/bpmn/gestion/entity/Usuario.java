@@ -23,10 +23,12 @@ import lombok.ToString;
  * (HU-03) y la contraseña se guarda solo como hash BCrypt. Desactivar no borra: el usuario
  * conserva su historial y los procesos siguen siendo de la empresa.
  */
+// Tabla "usuarios": el correo es único y hay un índice por empresa para filtrar rápido los usuarios de cada una.
 @Entity
 @Table(name = "usuarios",
         uniqueConstraints = @UniqueConstraint(name = "uk_usuario_correo", columnNames = "correo"),
         indexes = @Index(name = "idx_usuario_empresa", columnList = "empresa_id"))
+// Lombok genera getters, setters, constructores y builder; el toString excluye la contraseña para no filtrarla en logs.
 @Getter
 @Setter
 @ToString(exclude = "password")
@@ -35,13 +37,16 @@ import lombok.ToString;
 @Builder
 public class Usuario extends EntidadDeEmpresa {
 
+    /** Identificador del usuario, autoincremental en la base de datos. */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Nombre completo del colaborador. */
     @Column(length = 120, nullable = false)
     private String nombre;
 
+    /** Correo del usuario; se usa para iniciar sesión y es único en todo el sistema. */
     @Column(length = 120, nullable = false)
     private String correo;
 
@@ -49,10 +54,12 @@ public class Usuario extends EntidadDeEmpresa {
     @Column(length = 100, nullable = false)
     private String password;
 
+    /** Rol de acceso (ADMINISTRADOR, EDITOR o LECTOR); se guarda como texto, no como número. */
     @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
     private RolAcceso rol;
 
+    /** false cuando el usuario está desactivado (no puede entrar, pero no se borra). */
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;

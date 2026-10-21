@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class ContextoDeSeguridad {
 
+    /** @return el usuario autenticado de la petición actual, o vacío si no hay sesión */
     public Optional<ApiPrincipal> actual() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof ApiPrincipal principal) {

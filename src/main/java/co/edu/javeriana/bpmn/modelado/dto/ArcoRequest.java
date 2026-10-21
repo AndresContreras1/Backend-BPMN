@@ -6,6 +6,11 @@ import jakarta.validation.constraints.Size;
 /**
  * HU-11 y HU-12: arco entre dos nodos. Cada id se resuelve contra la empresa del usuario;
  * el cuerpo nunca trae empresaId.
+ * @param procesoId proceso donde se dibuja el arco, obligatorio
+ * @param origenId nodo del que sale, obligatorio
+ * @param destinoId nodo al que llega, obligatorio
+ * @param etiqueta texto opcional sobre la línea, máximo 80 caracteres
+ * @param condicion condición opcional (solo para gateways exclusivo o inclusivo), máximo 200 caracteres
  */
 public record ArcoRequest(
         @NotNull(message = "El proceso es obligatorio") Long procesoId,

@@ -24,8 +24,11 @@ import co.edu.javeriana.bpmn.soporte.IntegracionBase;
  * HU-08 a HU-16: se arma el proceso de vacaciones del enunciado y se intenta romper
  * cada regla del modelo BPMN.
  */
+// Suite de integración de actividades, gateways, eventos y arcos del diagrama BPMN (aplicación completa + MockMvc + JWT real).
+// Hereda de IntegracionBase, que da el cliente api y limpia la base tras cada prueba.
 class NodosYArcosIT extends IntegracionBase {
 
+    // Tokens de los usuarios y ids del proceso, el pool y las tres lanes.
     private String admin;
     private String editor;
     private String lector;
@@ -36,6 +39,7 @@ class NodosYArcosIT extends IntegracionBase {
     private long laneJefe;
     private long laneTH;
 
+    // Ids de los elementos que arma armarVacaciones().
     // Elementos del proceso de vacaciones
     private long inicio;
     private long radicar;
@@ -47,6 +51,7 @@ class NodosYArcosIT extends IntegracionBase {
     private long arcoSi;
     private long arcoNo;
 
+    // Antes de cada prueba: dos empresas, un proceso "Vacaciones" con su pool y tres lanes (Empleado, Jefe inmediato, Talento Humano).
     @BeforeEach
     void datos() throws Exception {
         admin = api.registrarEmpresaYEntrar("Empresa A", "900111222-1", "admin@a.com");
@@ -60,22 +65,26 @@ class NodosYArcosIT extends IntegracionBase {
         laneTH = lane("Talento Humano");
     }
 
+    // Auxiliar: crea un rol y una lane que lo usa en el pool; devuelve el id de la lane.
     private long lane(String rol) throws Exception {
         long idRol = api.id(api.post(admin, "/api/v1/roles-proceso", Map.of("nombre", rol)), "id");
         return api.id(api.post(editor, "/api/v1/pools/{id}/lanes", Map.of("rolProcesoId", idRol), pool), "id");
     }
 
+    // Auxiliar: crea una actividad de tipo USUARIO en una lane (debe responder 201).
     private long actividad(long lane, String nombre) throws Exception {
         return api.id(api.post(editor, "/api/v1/lanes/{id}/actividades",
                 Map.of("nombre", nombre, "tipoActividad", "USUARIO", "posX", 100, "posY", 40), lane)
                 .andExpect(status().isCreated()), "id");
     }
 
+    // Auxiliar: crea un evento INICIO o FIN en una lane.
     private long evento(String tipo, long lane) throws Exception {
         return api.id(api.post(editor, "/api/v1/pools/{id}/eventos", Map.of("tipo", tipo, "laneId", lane), pool)
                 .andExpect(status().isCreated()), "id");
     }
 
+    // Auxiliar: crea un arco entre dos nodos; si hay condición, también la usa como etiqueta.
     private long arco(long origen, long destino, String condicion) throws Exception {
         Map<String, Object> cuerpo = new HashMap<>(Map.of("procesoId", proceso, "origenId", origen, "destinoId", destino));
         if (condicion != null) {
@@ -86,6 +95,7 @@ class NodosYArcosIT extends IntegracionBase {
     }
 
     /** El proceso de solicitud de vacaciones del enunciado. */
+    // Arma el diagrama completo: inicio, radicar, revisar, gateway exclusivo, rechazo, actualizar y fin, con 7 arcos.
     private void armarVacaciones() throws Exception {
         inicio = evento("INICIO", laneEmpleado);
         radicar = actividad(laneEmpleado, "Radicar solicitud");
@@ -105,12 +115,15 @@ class NodosYArcosIT extends IntegracionBase {
         arco(rechazo, fin, null);
     }
 
+    // Cuerpo de edición para pasar el proceso a PUBLICADO.
     private Map<String, Object> publicar() {
         return Map.of("nombre", "Vacaciones", "categoria", "TH", "estado", "PUBLICADO");
     }
 
     // ---------- Diagrama completo ----------
 
+    // Escenario: se arma el proceso de vacaciones y se consulta el diagrama.
+    // Esperado: 7 nodos, 7 arcos, un gateway exclusivo, condiciones en dos arcos, sin advertencias, y el proceso se puede publicar.
     @Test
     void HU07_procesoDeVacaciones_DiagramaCompletoCoherenteYPublicable() throws Exception {
         armarVacaciones();
@@ -129,6 +142,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.estado").value("PUBLICADO"));
     }
 
+    // Escenario: un borrador con solo inicio y una actividad.
+    // Esperado: la validación avisa que falta fin y entrada, y publicar da 409 con el motivo.
     @Test
     void HU04_borradorIncompleto_SeGuardaConAdvertenciasPeroNoSePublica() throws Exception {
         evento("INICIO", laneEmpleado);
@@ -142,6 +157,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.detalles", hasItem("'Radicar solicitud' no tiene camino de entrada")));
     }
 
+    // Escenario: con el proceso publicado, se agrega una actividad suelta.
+    // Esperado: 409 y no se guarda (sigue con 7 nodos); un cambio que no rompe nada (renombrar) sí se permite.
     @Test
     void ProcesoPublicado_CambioQueRompeLaCoherenciaSeRechazaYNoSeGuarda() throws Exception {
         armarVacaciones();
@@ -158,6 +175,8 @@ class NodosYArcosIT extends IntegracionBase {
 
     // ---------- HU-08 a HU-10 Actividades ----------
 
+    // Escenario: crear una actividad con posición.
+    // Esperado: 201 con lane, pool, posición y tipo; el historial lo registra.
     @Test
     void HU08_actividadEnSuLaneConPosicionEHistorial() throws Exception {
         api.post(editor, "/api/v1/lanes/{id}/actividades",
@@ -173,6 +192,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[0].detalle", containsString("lane 'Empleado'")));
     }
 
+    // Escenario: nombre repetido, sin nombre, tipo inexistente, posición negativa, un lector y una lane inexistente.
+    // Esperado: 409, 400, 400, 400, 403 y 404.
     @Test
     void HU08_reglasDeCreacion() throws Exception {
         actividad(laneEmpleado, "Radicar solicitud");
@@ -191,6 +212,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(status().isNotFound());
     }
 
+    // Escenario: mover una actividad a otra lane y cambiar su tipo.
+    // Esperado: 200, los arcos se conservan y el historial muestra el cambio de responsable.
     @Test
     void HU09_cambiarDeLaneCambiaElResponsableYConservaLosArcos() throws Exception {
         armarVacaciones();
@@ -206,6 +229,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[0].detalle", containsString("responsable: 'Jefe inmediato' → 'Talento Humano'")));
     }
 
+    // Escenario: mover a una lane de otro pool, editar sin lane y editar como lector.
+    // Esperado: 409, 400 y 403.
     @Test
     void HU09_noSeMueveAOtroPoolNiSinLaneNiLaEditaElLector() throws Exception {
         long radicarId = actividad(laneEmpleado, "Radicar solicitud");
@@ -221,6 +246,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(status().isForbidden());
     }
 
+    // Escenario: eliminar una actividad conectada.
+    // Esperado: el impacto anuncia los arcos que se van y las advertencias; el editor recibe 403, el admin 204; el historial guarda las advertencias.
     @Test
     void HU10_eliminarActividad_ArrastraSusArcosYAdvierteLoQueQuedaDesconectado() throws Exception {
         armarVacaciones();
@@ -242,6 +269,8 @@ class NodosYArcosIT extends IntegracionBase {
         api.get(lector, "/api/v1/actividades/{id}", revisar).andExpect(status().isNotFound());
     }
 
+    // Escenario: eliminar una lane con actividades.
+    // Esperado: 409 pidiendo reasignarlas.
     @Test
     void HU22_laneConActividadesNoSeElimina() throws Exception {
         actividad(laneEmpleado, "Radicar solicitud");
@@ -253,6 +282,8 @@ class NodosYArcosIT extends IntegracionBase {
 
     // ---------- HU-11 a HU-13 Arcos ----------
 
+    // Escenario: arcos inválidos (a sí mismo, repetido, entre pools, hacia un inicio, desde un fin, con condición sin gateway, sin destino, como lector).
+    // Esperado: 409 con su mensaje, 400 y 403 según el caso.
     @Test
     void HU11_reglasDelArco() throws Exception {
         long a = actividad(laneEmpleado, "A");
@@ -279,6 +310,8 @@ class NodosYArcosIT extends IntegracionBase {
         api.post(lector, "/api/v1/arcos", Map.of("procesoId", proceso, "origenId", b, "destinoId", f)).andExpect(status().isForbidden());
     }
 
+    // Escenario: arcos que mezclan ids de otra empresa.
+    // Esperado: 404 en todos.
     @Test
     void HU11_idsDelCuerpoDeOtraEmpresa_404() throws Exception {
         long a = actividad(laneEmpleado, "A");
@@ -294,6 +327,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(status().isNotFound());
     }
 
+    // Escenario: editar un arco y probar cambios inválidos.
+    // Esperado: 200 con la condición nueva; 409 en las modificaciones que rompen reglas; el historial lo registra.
     @Test
     void HU12_editarArco_MismasValidacionesYHistorial() throws Exception {
         armarVacaciones();
@@ -314,6 +349,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[0].detalle", containsString("diasDisponibles >= diasSolicitados")));
     }
 
+    // Escenario: eliminar un arco que sale del gateway.
+    // Esperado: el impacto advierte; el editor recibe 403, el admin 204 y el arco desaparece.
     @Test
     void HU13_eliminarArco_AdvierteElementosSinCaminoYSoloAdministrador() throws Exception {
         armarVacaciones();
@@ -330,6 +367,8 @@ class NodosYArcosIT extends IntegracionBase {
 
     // ---------- HU-14 a HU-16 Gateways ----------
 
+    // Escenario: crear gateways exclusivo, paralelo e inclusivo, y uno de tipo inexistente.
+    // Esperado: 201 para los válidos y 400 para el otro.
     @Test
     void HU14_gatewayDeCadaTipoConSuSimbolo() throws Exception {
         for (String tipo : new String[] {"EXCLUSIVO", "PARALELO", "INCLUSIVO"}) {
@@ -342,6 +381,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(status().isBadRequest());
     }
 
+    // Escenario: un arco del gateway pierde su condición.
+    // Esperado: aparece la advertencia CONDICION_FALTANTE.
     @Test
     void HU14_divergenciaConMenosDeDosSalidasOSinCondiciones_Advierte() throws Exception {
         armarVacaciones();
@@ -352,6 +393,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.advertencias[*].codigo", contains("CONDICION_FALTANTE")));
     }
 
+    // Escenario: cambiar el gateway a paralelo, luego a inclusivo y de nuevo a exclusivo con condiciones repetidas.
+    // Esperado: al pasar a paralelo se borran las condiciones y no se aceptan nuevas; al volver a exclusivo se advierte de condiciones que no se excluyen; el historial lo registra.
     @Test
     void HU15_aParaleloEliminaLasCondiciones_YAExclusivoAdvierteRepetidas() throws Exception {
         armarVacaciones();
@@ -376,6 +419,8 @@ class NodosYArcosIT extends IntegracionBase {
                 .andExpect(jsonPath("$.content[*].detalle", hasItem(containsString("se eliminaron 2 condiciones"))));
     }
 
+    // Escenario: eliminar el gateway.
+    // Esperado: el impacto indica 3 arcos y ramas sin decisión; el editor 403, el admin 204 y quedan 4 arcos.
     @Test
     void HU16_eliminarGateway_AdvierteRamasSinDecisionYArrastraSusArcos() throws Exception {
         armarVacaciones();
@@ -394,6 +439,8 @@ class NodosYArcosIT extends IntegracionBase {
 
     // ---------- Eventos ----------
 
+    // Escenario: reglas de eventos (inicio en caja negra, cambiar tipos, tipo inexistente, borrar el inicio).
+    // Esperado: 409, 409, 409, 400 y al borrar el inicio la validación avisa SIN_INICIO.
     @Test
     void Eventos_reglasDeInicioYFin() throws Exception {
         long correo = api.id(api.post(editor, "/api/v1/procesos/{id}/pools", Map.of("nombre", "Correo", "tipo", "SISTEMA_EXTERNO"), proceso), "id");
@@ -410,6 +457,8 @@ class NodosYArcosIT extends IntegracionBase {
 
     // ---------- Aislamiento ----------
 
+    // Escenario: la empresa B intenta leer, editar, borrar o crear sobre elementos de A.
+    // Esperado: 404 en todo.
     @Test
     void ElementosDeOtraEmpresa_404EnTodasLasOperaciones() throws Exception {
         armarVacaciones();

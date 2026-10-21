@@ -14,6 +14,16 @@ import jakarta.validation.constraints.Size;
 /**
  * HU-27: evento de recepción de mensaje (círculo con sobre sin rellenar). INICIO arranca el
  * proceso al llegar el mensaje; INTERMEDIO (doble borde) lo deja en espera.
+ * @param poolId pool donde se crea el evento, obligatorio
+ * @param laneId lane donde se ubica (opcional)
+ * @param nombre nombre del mensaje esperado, obligatorio, máximo 120 caracteres
+ * @param variante INICIO o INTERMEDIO, obligatoria
+ * @param origenExterno true si el mensaje llega de fuera del diagrama
+ * @param campos datos que trae el mensaje
+ * @param actividadesQueUsanIds actividades que usan los datos recibidos
+ * @param claveCorrelacion clave de correlación opcional (HU-28), máximo 120 caracteres
+ * @param posX posición horizontal en el lienzo, entre 0 y 10000
+ * @param posY posición vertical en el lienzo, entre 0 y 10000
  */
 public record MensajeCatchRequest(
         @NotNull(message = "El pool es obligatorio") Long poolId,

@@ -34,20 +34,24 @@ import lombok.ToString;
 @Builder
 public class UsoDeDatosMensaje extends EntidadDeEmpresa {
 
+    /** Identificador de la fila; la base de datos lo genera sola (autoincremental). */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Mensaje cuyos datos se usan. Se borra en cascada con el mensaje. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "mensaje_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Mensaje mensaje;
 
+    /** Actividad que usa los datos recibidos. Se borra en cascada con el nodo. */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "actividad_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NodoFlujo actividad;
 
+    /** Borrado lógico: en vez de borrar la fila se pone en false y deja de listarse. Por defecto nace activo. */
     @Column(nullable = false)
     @Builder.Default
     private boolean activo = true;

@@ -12,20 +12,24 @@ import jakarta.validation.constraints.Size;
  * externos): el administrador registra el correo, el rol de acceso y una contraseña inicial.
  */
 public record UsuarioRequest(
+        // Nombre del colaborador: obligatorio, máximo 120. @Schema solo da un ejemplo para Swagger.
         @Schema(example = "Carlos Ruiz")
         @NotBlank(message = "El nombre es obligatorio")
         @Size(max = 120, message = "El nombre admite máximo 120 caracteres")
         String nombre,
 
+        // Correo del colaborador (será su usuario de login): obligatorio y con formato de correo.
         @Schema(example = "carlos@demo.com")
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "El correo no tiene un formato válido")
         @Size(max = 120, message = "El correo admite máximo 120 caracteres")
         String correo,
 
+        // Rol de acceso que tendrá (ADMINISTRADOR, EDITOR o LECTOR). @NotNull: obligatorio.
         @NotNull(message = "El rol de acceso es obligatorio (ADMINISTRADOR, EDITOR o LECTOR)")
         RolAcceso rol,
 
+        // Contraseña inicial: entre 8 y 72 caracteres (72 es el máximo que usa BCrypt). Se guarda solo el hash.
         @Schema(example = "Bienvenido2026")
         @NotBlank(message = "La contraseña inicial es obligatoria")
         @Size(min = 8, max = 72, message = "La contraseña debe tener entre 8 y 72 caracteres")

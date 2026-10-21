@@ -18,13 +18,16 @@ public class JwtAuthEntryPoint implements AuthenticationEntryPoint {
 
     private final EscritorDeProblemDetail escritor;
 
+    // Se reutiliza el escritor para dar el mismo formato de error que el resto de la API.
     public JwtAuthEntryPoint(EscritorDeProblemDetail escritor) {
         this.escritor = escritor;
     }
 
+    /** Spring Security lo llama cuando una petición sin autenticar pide un recurso protegido. */
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
+        // Indica al cliente que debe autenticarse con un token Bearer.
         response.setHeader(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
         escritor.escribir(response, HttpStatus.UNAUTHORIZED, CodigoError.NO_AUTENTICADO,
                 "No autenticado",

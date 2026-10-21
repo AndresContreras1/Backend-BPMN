@@ -21,18 +21,25 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * todo y Hibernate validó que cada entidad cuadra con su tabla. Con el perfil demo, además, los datos de
  * ejemplo recorren todas las tablas, llaves foráneas y restricciones. Sin Docker la prueba se omite.
  */
+// Prueba de integración con Testcontainers: levanta un PostgreSQL real en Docker. Con el perfil prod se usa Flyway.
+// properties pasa usuario y clave de la base de prueba.
 @SpringBootTest(properties = { "DB_USER=bpmn", "DB_PASSWORD=bpmn" })
 @ActiveProfiles({ "prod", "demo" })
+// Si Docker no está instalado, la clase se omite en lugar de fallar.
 @Testcontainers(disabledWithoutDocker = true)
 class MigracionesIT {
 
+    // @Container + @ServiceConnection: Testcontainers inicia el contenedor y Spring Boot se conecta a él automáticamente.
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
+    // Permite consultar la base real con SQL.
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    // Escenario: arrancar contra la base vacía.
+    // Esperado: Flyway aplicó con éxito las versiones 1 y 2, en ese orden.
     @Test
     void Migraciones_flyway_AplicaTodasLasVersionesSinErrores() {
         List<String> versiones = jdbcTemplate.queryForList(
@@ -41,6 +48,8 @@ class MigracionesIT {
         assertThat(versiones).containsExactly("1", "2");
     }
 
+    // Escenario: tras migrar, el perfil demo cargó datos.
+    // Esperado: hay al menos un proceso y un nodo.
     @Test
     void Migraciones_datosDemo_SeGuardanSobreElEsquemaVersionado() {
         Long procesos = jdbcTemplate.queryForObject("select count(*) from proceso", Long.class);
@@ -50,12 +59,16 @@ class MigracionesIT {
         assertThat(nodos).isPositive();
     }
 
+    // Escenario: insertar un proceso con el mismo nombre en mayúsculas que uno activo.
+    // Esperado: la base lo rechaza; con activo=false sí se permite.
     @Test
     void Migraciones_nombreDeProceso_UnicoEntreActivosSinImportarMayusculas() {
+        // Preparar: se toma una empresa y el nombre de uno de sus procesos activos.
         Long empresaId = jdbcTemplate.queryForObject("select min(id) from empresa", Long.class);
         String nombre = jdbcTemplate.queryForObject(
                 "select nombre from proceso where empresa_id = ? and activo order by id limit 1", String.class, empresaId);
 
+        // Actuar y comprobar: insertar activo y en mayúsculas viola el índice único (insensible a mayúsculas).
         assertThatThrownBy(() -> insertarProceso(empresaId, nombre.toUpperCase(), true))
                 .isInstanceOf(DataIntegrityViolationException.class);
 
@@ -63,6 +76,7 @@ class MigracionesIT {
         insertarProceso(empresaId, nombre.toUpperCase(), false);
     }
 
+    // Auxiliar: inserta un proceso por SQL directo, saltándose la API.
     private void insertarProceso(Long empresaId, String nombre, boolean activo) {
         jdbcTemplate.update("""
                 insert into proceso (empresa_id, nombre, categoria, estado, activo, version,

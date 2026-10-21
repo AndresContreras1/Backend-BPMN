@@ -9,6 +9,9 @@ import jakarta.validation.constraints.Size;
 /**
  * HU-21: participante del diagrama. Un sistema externo siempre es caja negra; si cajaNegra no
  * llega, se asume verdadero para SISTEMA_EXTERNO y falso para los demás.
+ * @param nombre nombre del participante, obligatorio, máximo 120 caracteres
+ * @param tipo PROPIETARIO, CLIENTE, PROVEEDOR o SISTEMA_EXTERNO, obligatorio
+ * @param cajaNegra si es caja negra; es Boolean (objeto) para poder distinguir no enviado (nulo) de falso
  */
 public record PoolRequest(
         @Schema(example = "Servicio de correo")
