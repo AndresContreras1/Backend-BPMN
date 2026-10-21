@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -45,6 +47,26 @@ public class GlobalExceptionHandler {
             pd.setProperty("detalles", ex.getDetalles());
         }
         return pd;
+    }
+
+    @ExceptionHandler(ParametroInvalidoException.class)
+    public ProblemDetail parametroInvalido(ParametroInvalidoException ex) {
+        return problema(HttpStatus.BAD_REQUEST, "Parámetro inválido", ex.getMessage());
+    }
+
+    /**
+     * Inicio de sesión fallido (HU-03). El mensaje es el mismo si el correo no existe, si la
+     * contraseña no coincide o si la cuenta está desactivada: no revela qué correos existen.
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail autenticacion(AuthenticationException ex) {
+        return problema(HttpStatus.UNAUTHORIZED, "Credenciales inválidas", "Correo o contraseña incorrectos");
+    }
+
+    /** @PreAuthorize rechazó la operación: el usuario está autenticado pero su rol no basta. */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ProblemDetail sinPermisos(AccessDeniedException ex) {
+        return problema(HttpStatus.FORBIDDEN, "Sin permisos", "Su rol no permite realizar esta operación");
     }
 
     /** @Valid falló en un @RequestBody: se devuelve el mensaje de cada campo. */

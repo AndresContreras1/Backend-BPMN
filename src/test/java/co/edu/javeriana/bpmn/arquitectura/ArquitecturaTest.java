@@ -6,6 +6,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
@@ -50,6 +52,35 @@ class ArquitecturaTest {
             .and().doNotHaveSimpleName("Empresa")
             .should().beAssignableTo(EntidadDeEmpresa.class)
             .because("todo dato del sistema cuelga de una empresa (HU-01)");
+
+    @ArchTest
+    static final ArchRule los_controladores_no_usan_repositorios = noClasses()
+            .that().resideInAPackage("..controller..")
+            .should().dependOnClassesThat().resideInAPackage("..repository..")
+            .because("Controller -> Service -> Repository: no se saltan capas");
+
+    @ArchTest
+    static final ArchRule las_entidades_no_salen_por_la_api = noClasses()
+            .that().resideInAPackage("..controller..")
+            .should().dependOnClassesThat().areAnnotatedWith(Entity.class)
+            .because("los controladores solo reciben y devuelven DTOs");
+
+    @ArchTest
+    static final ArchRule los_servicios_no_dependen_de_controladores = noClasses()
+            .that().resideInAPackage("..service..")
+            .should().dependOnClassesThat().resideInAPackage("..controller..");
+
+    @ArchTest
+    static final ArchRule los_controladores_rest_viven_en_controller = classes()
+            .that().areAnnotatedWith(RestController.class)
+            .should().resideInAPackage("..controller..")
+            .andShould().haveSimpleNameEndingWith("Controller");
+
+    @ArchTest
+    static final ArchRule los_servicios_son_implementaciones = classes()
+            .that().areAnnotatedWith(Service.class).and().resideInAPackage("..service..")
+            .should().haveSimpleNameEndingWith("ServiceImpl")
+            .andShould().resideInAPackage("..service.impl..");
 
     @ArchTest
     static final ArchRule sin_inyeccion_por_atributo = noFields()
