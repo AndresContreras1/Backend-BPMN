@@ -21,6 +21,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jacoco.version>0.8.15</jacoco.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+        <springdoc.version>2.8.17</springdoc.version>
+        <archunit.version>1.5.1</archunit.version>
+        <jjwt.version>0.12.7</jjwt.version>
+        <bucket4j.version>8.19.0</bucket4j.version>
+        <!-- Etiquetas de JUnit que corre failsafe: por defecto todo menos las pruebas de sistema (ver perfil e2e) -->
+        <pruebas.incluidas></pruebas.incluidas>
+        <pruebas.excluidas>e2e</pruebas.excluidas>
 
         <!-- SonarCloud: organizacion y llave se pueden sobrescribir con -Dsonar.organization y -Dsonar.projectKey -->
         <sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -45,6 +52,51 @@
         </dependency>
 
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Rate limiting del login y el registro: cubo de fichas en memoria -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk17-core</artifactId>
+            <version>${bucket4j.version}</version>
+        </dependency>
+
+        <!-- Migraciones del esquema de PostgreSQL (perfil prod) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
@@ -64,6 +116,39 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- PostgreSQL real en Docker para probar las migraciones -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>${archunit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Pruebas de sistema (E2E): Selenium maneja Chrome; la version la fija Spring Boot -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -108,10 +193,14 @@
                 </configuration>
             </plugin>
 
-            <!-- Pruebas *IT (integracion) en la fase verify -->
+            <!-- Pruebas *IT (integracion) en la fase verify; las de sistema (@Tag e2e) solo con -Pe2e -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <groups>${pruebas.incluidas}</groups>
+                    <excludedGroups>${pruebas.excluidas}</excludedGroups>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -192,4 +281,30 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Pruebas de sistema con Selenium: ./mvnw verify -Pe2e con el frontend corriendo en http://localhost:4200
+            (o -De2e.url=...). Solo corren las clases con @Tag("e2e"); las unitarias y la cobertura se saltan.
+        -->
+        <profile>
+            <id>e2e</id>
+            <properties>
+                <jacoco.skip>true</jacoco.skip>
+                <pruebas.incluidas>e2e</pruebas.incluidas>
+                <pruebas.excluidas>ninguna</pruebas.excluidas>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -1,0 +1,70 @@
+name: Build and Deploy with MicroK8s
+
+# Despliegue del curso: cada push a main publica la imagen en GHCR y la despliega en el microk8s del
+# servidor con el runner self-hosted "main". Mientras ese runner no esté registrado, el despliegue se salta:
+# se activa creando la variable del repositorio RUNNER_REGISTRADO=true (Settings → Variables → Actions).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Dos trabajos en orden: primero se publica la imagen, luego se despliega en el servidor
+jobs:
+  build-and-publish:
+    name: Build and Push Image to GHCR
+    runs-on: ubuntu-latest
+
+    # Permisos minimos del token: leer el codigo y escribir paquetes (la imagen en GHCR)
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    # Paso informativo para ver en el log desde que rama corre el flujo
+    - name: Mostrar rama actual
+      run: "echo 'Rama actual: ${{ github.ref }}'"
+
+    # Descarga el codigo del repositorio
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # El nombre de la imagen debe ir en minuscula: se convierte el dueno del repositorio y se guarda para los pasos siguientes
+    - name: Set OWNER_LC
+      run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+    # Inicia sesion en el registro de imagenes de GitHub con el token automatico del flujo
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Construye la imagen con el Dockerfile y la etiqueta con su nombre completo en GHCR
+    - name: Build Docker image
+      run: docker build -t ghcr.io/${OWNER_LC}/backend-bpmn:latest .
+
+    # Sube la imagen al registro para que el servidor pueda descargarla
+    - name: Push Docker image
+      run: docker push ghcr.io/${OWNER_LC}/backend-bpmn:latest
+
+    - name: Print pushed image URL
+      run: 'echo "Imagen publicada: ghcr.io/${OWNER_LC}/backend-bpmn:latest"'
+
+  deploy-onpremise:
+    name: Deploy on MicroK8s On-Premise
+    # Runner propio (self-hosted) instalado en el servidor; "main" es su etiqueta
+    runs-on: main
+    needs: build-and-publish
+    # Se salta si no se ha activado la variable del repositorio
+    if: vars.RUNNER_REGISTRADO == 'true'
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+    # Aplica k8s/deployment.yaml: crea o actualiza el Deployment, el Service y el Ingress
+    - name: Apply Kubernetes deployment
+      run: sudo microk8s kubectl apply -f k8s/deployment.yaml
+    # Reinicia los pods para que descarguen la imagen :latest recien publicada (imagePullPolicy: Always)
+    - name: Restart Kubernetes deployment
+      run: sudo microk8s kubectl rollout restart deployment/backend-bpmn -n bpmn

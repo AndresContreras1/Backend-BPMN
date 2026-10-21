@@ -1,0 +1,77 @@
+name: Pruebas de sistema (E2E)
+
+# Selenium sobre el frontend real: se clona Frontend-BPMN, se levanta con ng serve (su proxy apunta al
+# backend en 8090) y ./mvnw verify -Pe2e arranca el backend en ese puerto y corre las pruebas con Chrome
+# headless. Se ejecuta a mano (Actions -> Run workflow) eligiendo la rama del frontend que se quiere probar.
+on:
+  # Solo se lanza a mano desde la pestana Actions
+  workflow_dispatch:
+    inputs:
+      rama_frontend:
+        description: Rama de Frontend-BPMN contra la que se prueba
+        required: true
+        default: main
+
+# Un solo trabajo: levanta el frontend y corre las pruebas de sistema contra el backend
+jobs:
+  e2e:
+    name: Selenium sobre el frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      # Descarga este repositorio
+      - name: Checkout del backend
+        uses: actions/checkout@v4
+
+      # Descarga el frontend en la carpeta "frontend", en la rama elegida al lanzar el flujo
+      - name: Checkout del frontend
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Frontend-BPMN
+          ref: ${{ inputs.rama_frontend }}
+          path: frontend
+
+      # Java para compilar y ejecutar el backend y las pruebas
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # Node para instalar y servir el frontend Angular
+      - name: Configurar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci instala segun package-lock; ng serve queda en segundo plano (nohup y &) y su salida va a un log
+      - name: Instalar y levantar el frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          nohup npx ng serve --port 4200 > ../ng-serve.log 2>&1 &
+
+      # Pregunta cada 2 segundos (hasta 90 veces) si el frontend ya responde; si nunca responde muestra el log y falla
+      - name: Esperar a que Angular responda
+        run: |
+          for i in $(seq 1 90); do
+            curl -sf http://localhost:4200 > /dev/null && exit 0
+            sleep 2
+          done
+          cat ng-serve.log
+          exit 1
+
+      # El perfil e2e de Maven arranca el backend y ejecuta las pruebas Selenium
+      - name: Pruebas de sistema
+        run: ./mvnw -B verify -Pe2e
+
+      # Sube las capturas aunque las pruebas fallen, para ver que paso
+      - name: Capturas de pantalla de cada prueba
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-e2e
+          path: target/capturas/
